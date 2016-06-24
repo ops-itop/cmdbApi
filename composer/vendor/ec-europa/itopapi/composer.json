@@ -1,0 +1,22 @@
+{
+    "name": "ec-europa/itopapi",
+    "description": "Php library for accessing the iTop API",
+    "type": "library",
+    "keywords": ["itop","api","client"],
+    "license": "EUPL",
+    "homepage": "https://github.com/ec-europa/iTopApi",
+    "authors": [
+        {
+            "name": "Gregory Boddin",
+            "email": "gregory.boddin@ext.ec.europa.eu",
+            "homepage": "https://github.com/gboddin"
+        }
+    ],
+    "autoload": {
+      "psr-4": {"iTopApi\\": "src/"}
+    },
+    "require": {
+      "ext-curl" : "*",
+      "php" : ">=5.3.0"
+    }
+}

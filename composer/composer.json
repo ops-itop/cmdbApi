@@ -1,0 +1,5 @@
+{
+    "require": {
+        "ec-europa/itopapi": "^0.5.2"
+    }
+}

@@ -1,0 +1,63 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
+    ],
+    "hash": "50a4bc45db2c86cad3d2eaa725b58d9f",
+    "content-hash": "c15e061f3fec498dd1c878bb06755290",
+    "packages": [
+        {
+            "name": "ec-europa/itopapi",
+            "version": "0.5.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ec-europa/iTopApi.git",
+                "reference": "0b28aa6b11b89e3600e341ec634395b24374e133"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ec-europa/iTopApi/zipball/0b28aa6b11b89e3600e341ec634395b24374e133",
+                "reference": "0b28aa6b11b89e3600e341ec634395b24374e133",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "php": ">=5.3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "iTopApi\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "EUPL"
+            ],
+            "authors": [
+                {
+                    "name": "Gregory Boddin",
+                    "email": "gregory.boddin@ext.ec.europa.eu",
+                    "homepage": "https://github.com/gboddin"
+                }
+            ],
+            "description": "Php library for accessing the iTop API",
+            "homepage": "https://github.com/ec-europa/iTopApi",
+            "keywords": [
+                "api",
+                "client",
+                "itop"
+            ],
+            "time": "2015-10-16 15:26:08"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": []
+}

@@ -1,0 +1,15 @@
+<?php
+/**
+ * Usage:
+ * File Name: config.php
+ * Author: annhe  
+ * Mail: i@annhe.net
+ * Created Time: 2016-06-24 11:39:32
+ **/
+
+$config = array();
+
+// 连接
+$config['itop']['url'] = "http://cmdb.xx";
+$config['itop']['user'] = "apiuser";
+$config['itop']['password'] = "k2odmlx;pwo98";
