@@ -19,10 +19,13 @@ function getContact($type, $value)
 {
 	global $iTopAPI;
 
+	$arr = explode(',',$value);
+	$value = implode("','", $arr);
+
 	switch($type)
 	{
-	case "ApplicationSolution":
-		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name = '$value'";
+	case "app":
+		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value')";
 		break;
 	default:
 		$query = NULL;	
