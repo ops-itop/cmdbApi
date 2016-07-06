@@ -25,7 +25,7 @@ function getContact($type, $value)
 	switch($type)
 	{
 	case "app":
-		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value')";
+		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value') AND p.status='active' AND p.notify='yes'";
 		break;
 	default:
 		$query = NULL;	
