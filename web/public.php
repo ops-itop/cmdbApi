@@ -28,7 +28,7 @@ function getContact($type, $value)
 		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value') AND p.status='active' AND p.notify='yes'";
 		break;
 	default:
-		$query = NULL;	
+		$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id_friendlyname IN ('$value') AND p.status='active' AND p.notify='yes'";
 	}
 
 	if (!$query) {
