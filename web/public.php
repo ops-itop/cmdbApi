@@ -22,21 +22,19 @@ function getContact($type, $value)
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
+	$output = "friendlyname, email, mobile_phone";
 	switch($type)
 	{
 	case "app":
 		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value') AND p.status='active' AND p.notify='yes'";
+		$data = $iTopAPI->coreGet("Person", $query, $output);
 		break;
 	default:
-		$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id_friendlyname IN ('$value') AND p.status='active' AND p.notify='yes'";
+		$query = "SELECT FunctionalCI AS f WHERE f.name IN ('$value')";
+		$data = $iTopAPI->coreGet("FunctionalCI", $query);
+		#$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id_friendlyname IN ('$value') AND p.status='active' AND p.notify='yes'";
 	}
 
-	if (!$query) {
-		$data = array("code" => "1", "errmsg" => "type error");
-		die(json_encode($data));
-	}
-	$output = "friendlyname, email, mobile_phone";
-	$data = $iTopAPI->coreGet("Person", $query, $output);
 	return(json_encode($data));
 }
 
