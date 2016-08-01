@@ -22,7 +22,7 @@ function getContact($type, $value)
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
-	$output = "friendlyname, email, mobile_phone";
+	$output = "friendlyname, email, phone";
 	switch($type)
 	{
 	case "app":

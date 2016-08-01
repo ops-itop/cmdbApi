@@ -19,7 +19,7 @@ function runOQL($class, $key)
 {
 	global $iTopAPI;
 
-	$key = array("name" => "cmdb");
+	#$key = array("name" => "cmdb");
 	#$key = json_encode($key);
 	#print_r($key);
 	if (!$key) {
@@ -31,6 +31,7 @@ function runOQL($class, $key)
 }
 
 if(isset($argv[1]) and isset($argv[2])){
+
 	die(runOQL($argv[1], $argv[2]));
 }else
 {
