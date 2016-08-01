@@ -8,6 +8,8 @@
  **/
 require '../etc/config.php';
 require '../composer/vendor/autoload.php';
+require 'types/default.php';
+require 'types/app.php';
 
 define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
@@ -22,17 +24,16 @@ function getContact($type, $value)
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
-	$output = "friendlyname, email, phone";
 	switch($type)
 	{
 	case "app":
-		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_name IN ('$value') AND p.status='active' AND p.notify='yes'";
-		$data = $iTopAPI->coreGet("Person", $query, $output);
+		$data = typeApp($iTopAPI, $value);
+		break;
+	case "server":
+		$data = typeDefault($iTopAPI,"Server", $value);
 		break;
 	default:
-		$query = "SELECT FunctionalCI AS f WHERE f.name IN ('$value')";
-		$data = $iTopAPI->coreGet("FunctionalCI", $query);
-		#$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id_friendlyname IN ('$value') AND p.status='active' AND p.notify='yes'";
+		$data = typeDefault($iTopAPI,"FunctionalCI", $value);
 	}
 
 	return(json_encode($data));
