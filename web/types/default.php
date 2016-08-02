@@ -23,13 +23,14 @@ function typeDefault($iTopAPI, $type, $value)
 	$output = "contacts_list,applicationsolution_list";
 	$data = $iTopAPI->coreGet("FunctionalCI", $query, $output);
 	$result = $data['objects'];
-	if($result){
-		$contacts = array();
-		$apps = array();
-		foreach($result as $k=>$v){
-			$contacts = array_merge($contacts, $v['fields']['contacts_list']);
-			$apps = array_merge($apps, $v['fields']['applicationsolution_list']);
-		}
+	if(!$result){
+		return($data);
+	}
+	$contacts = array();
+	$apps = array();
+	foreach($result as $k=>$v){
+		$contacts = array_merge($contacts, $v['fields']['contacts_list']);
+		$apps = array_merge($apps, $v['fields']['applicationsolution_list']);
 	}
 	$c_array = array();
 	foreach($contacts as $k=>$v){
