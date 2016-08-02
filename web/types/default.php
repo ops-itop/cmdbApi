@@ -9,13 +9,18 @@
 
 function typeDefault($iTopAPI, $type, $value) 
 {
-	$name = "name";
-	if($type == "Server") {
-		$name = "hostname";	
+	if($type == "PhysicalIP") {
+		$query = "SELECT Server AS s JOIN $type AS ip ON ip.connectableci_id=s.id " .
+			"WHERE ip.ipaddress IN ('$value')";
+	}else{
+		$name = "name";
+		if($type == "Server") {
+			$name = "hostname";	
+		}
+		$query = "SELECT $type AS f WHERE f.$name IN ('$value')";
 	}
-	$output = "contacts_list,applicationsolution_list";
-	$query = "SELECT $type AS f WHERE f.$name IN ('$value')";
 
+	$output = "contacts_list,applicationsolution_list";
 	$data = $iTopAPI->coreGet("FunctionalCI", $query, $output);
 	$result = $data['objects'];
 	if($result){

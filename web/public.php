@@ -32,6 +32,9 @@ function getContact($type, $value)
 	case "server":
 		$data = typeDefault($iTopAPI,"Server", $value);
 		break;
+	case "ip":
+		$data = typeDefault($iTopAPI, "PhysicalIP", $value);
+		break;
 	default:
 		$data = typeDefault($iTopAPI,"FunctionalCI", $value);
 	}
