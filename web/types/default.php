@@ -9,8 +9,12 @@
 
 function typeDefault($iTopAPI, $type, $value) 
 {
+	$name = "name";
+	if($type == "Server") {
+		$name = "hostname";	
+	}
 	$output = "contacts_list,applicationsolution_list";
-	$query = "SELECT $type AS f WHERE f.name IN ('$value')";
+	$query = "SELECT $type AS f WHERE f.$name IN ('$value')";
 
 	$data = $iTopAPI->coreGet("FunctionalCI", $query, $output);
 	$result = $data['objects'];
