@@ -10,6 +10,7 @@ require '../etc/config.php';
 require '../composer/vendor/autoload.php';
 require 'types/default.php';
 require 'types/app.php';
+require 'types/url.php';
 
 define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
@@ -34,6 +35,9 @@ function getContact($type, $value)
 		break;
 	case "ip":
 		$data = typeDefault($iTopAPI, "PhysicalIP", $value);
+		break;
+	case "url":
+		$data = typeUrl($iTopAPI, $value);
 		break;
 	default:
 		$data = typeDefault($iTopAPI,"FunctionalCI", $value);
