@@ -12,7 +12,7 @@ function typeUrl($iTopAPI, $value)
 {
 	$output = "applicationsolution_name, third_email, third_phone";
 	//$output = "friendlyname, email, phone";
-	$query = "SELECT Url AS url WHERE url.name IN ('$value')";
+	$query = "SELECT Url AS url WHERE url.name IN ('$value') AND url.status = 'production'";
 	$data = $iTopAPI->coreGet("Url", $query, $output);
 	$obj = $data['objects'];
 	$app = array();
