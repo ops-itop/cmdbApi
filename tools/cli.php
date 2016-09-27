@@ -15,7 +15,7 @@ define('ITOPPWD', $config['itop']['password']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-function runOQL($class, $key) 
+function runOQL($class, $key, $isGet=true) 
 {
 	global $iTopAPI;
 
@@ -26,13 +26,24 @@ function runOQL($class, $key)
 		$data = array("code" => "1", "errmsg" => "type error");
 		die(json_encode($data));
 	}
-	$data = $iTopAPI->coreGet($class, $key);
+	if($isGet)
+	{
+		$data = $iTopAPI->coreGet($class, $key);
+	}else
+	{
+		$data = $iTopAPI->coreRelated($class, $key);
+	}
 	return(json_encode($data));
 }
 
 if(isset($argv[1]) and isset($argv[2])){
-
-	die(runOQL($argv[1], $argv[2]));
+	if(isset($argv[3]))
+	{
+		die(runOQL($argv[1], $argv[2], false);
+	}else
+	{
+		die(runOQL($argv[1], $argv[2]));
+	}
 }else
 {
 	$data = array("code" => "1", "errmsg" => "nothing to do");

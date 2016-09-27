@@ -113,6 +113,17 @@ namespace iTopApi {
             ));
 
         }
+        public function coreRelated($class,$query) {
+            return $this->operation('core/get_related',array(
+   				'redundancy' => "true",
+   				'key' => $query,
+				'depth' => "5",
+				'relation' => "impacts",
+				'direction' => "down",
+                'class' => $class,
+            ));
+
+        }
 
     }
 }
