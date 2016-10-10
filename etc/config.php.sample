@@ -13,3 +13,8 @@ $config = array();
 $config['itop']['url'] = "http://cmdb.xx";
 $config['itop']['user'] = "apiuser";
 $config['itop']['password'] = "k2odmlx;pwo98";
+
+// zabbix api
+$config['zabbix']['url'] = "http://zbx.cn/api_jsonrpc.php";
+$config['zabbix']['user'] = "user";
+$config['zabbix']['password'] = "password";
