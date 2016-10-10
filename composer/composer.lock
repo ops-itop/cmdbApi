@@ -4,9 +4,52 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "50a4bc45db2c86cad3d2eaa725b58d9f",
-    "content-hash": "c15e061f3fec498dd1c878bb06755290",
+    "hash": "cdc3042639af4faa114a2f8a03c1cb59",
+    "content-hash": "145c7928421308a6cd0aaac7fb45326b",
     "packages": [
+        {
+            "name": "confirm-it-solutions/php-zabbix-api",
+            "version": "v2.4.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/confirm/PhpZabbixApi.git",
+                "reference": "1e9affbd5e3d693efe3950c6619f9f121f448891"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/confirm/PhpZabbixApi/zipball/1e9affbd5e3d693efe3950c6619f9f121f448891",
+                "reference": "1e9affbd5e3d693efe3950c6619f9f121f448891",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "ZabbixApi": "build"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Dominique Barton",
+                    "email": "dbarton@confirm.ch",
+                    "homepage": "http://www.confirm.ch",
+                    "role": "Developer"
+                }
+            ],
+            "description": "PhpZabbixApi library",
+            "homepage": "http://github.com/confirm-it-solutions/PhpZabbixApi",
+            "keywords": [
+                "api",
+                "zabbix"
+            ],
+            "time": "2015-06-03 14:40:35"
+        },
         {
             "name": "ec-europa/itopapi",
             "version": "0.5.2",

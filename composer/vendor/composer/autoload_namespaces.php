@@ -6,4 +6,5 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
+    'ZabbixApi' => array($vendorDir . '/confirm-it-solutions/php-zabbix-api/build'),
 );
