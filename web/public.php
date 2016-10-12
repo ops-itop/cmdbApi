@@ -43,7 +43,7 @@ function getContact($type, $value)
 		$data = typeDefault($iTopAPI,"FunctionalCI", $value);
 	}
 
-	return(json_encode($data));
+	return($data);
 }
 
 if(isset($_GET['type']) and isset($_GET['value'])) {
