@@ -21,6 +21,7 @@ define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
 define('MAILTO', $config['mail']['to']);
+define('MAILFROM', $config['mail']['from']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
@@ -29,7 +30,7 @@ $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
 function getAllServer()
 {
 	global $iTopAPI;
-	$oql = "SELECT Server";
+	$oql = "SELECT Server AS s WHERE s.status='production'";
 	$output_fields = "name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
@@ -78,7 +79,7 @@ function main()
 
 	$dt = date("Y-m-d", time());
 	$subject = "监控审计报告-$dt";
-	$headers = "";
+	$headers = "From: ". MAILFROM;
 	//$headers = "MIME-Version: 1.0" . "\r\n";
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
 	mail(MAILTO,$subject,$csv,$headers);
