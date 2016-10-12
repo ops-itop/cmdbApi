@@ -47,9 +47,10 @@ namespace iTopApi {
                 curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 1);
             }
             $jsonResponse = curl_exec($curl);
-            $response = json_decode($jsonResponse,true);
+            //$response = json_decode($jsonResponse,true);
             curl_close($curl);
-
+            return $jsonResponse;
+            /*
             if(!is_array($response))
                 throw new \Exception('Invalid response from server : '.$jsonResponse);
 
@@ -57,6 +58,7 @@ namespace iTopApi {
                 throw new \Exception('iTop Exception : '.$response['message']);
 
             return $response;
+             */
         }
 
         public function operation($operation, array $data=array()) {
@@ -69,8 +71,8 @@ namespace iTopApi {
                 $query = 'SELECT '.$class;
             return $this->operation('core/get',array(
                 'class' => $class,
-				'key' => $query,
-				'output_fields' =>$output
+                'key' => $query,
+                'output_fields' =>$output
             ));
         }
 
@@ -115,11 +117,11 @@ namespace iTopApi {
         }
         public function coreRelated($class,$query) {
             return $this->operation('core/get_related',array(
-   				'redundancy' => "true",
-   				'key' => $query,
-				'depth' => "5",
-				'relation' => "impacts",
-				'direction' => "down",
+                'redundancy' => "true",
+                'key' => $query,
+                'depth' => "5",
+                'relation' => "impacts",
+                'direction' => "down",
                 'class' => $class,
             ));
 

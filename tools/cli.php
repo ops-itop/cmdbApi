@@ -33,13 +33,13 @@ function runOQL($class, $key, $isGet=true)
 	{
 		$data = $iTopAPI->coreRelated($class, $key);
 	}
-	return(json_encode($data));
+	return($data);
 }
 
 if(isset($argv[1]) and isset($argv[2])){
 	if(isset($argv[3]))
 	{
-		die(runOQL($argv[1], $argv[2], false);
+		die(runOQL($argv[1], $argv[2], false));
 	}else
 	{
 		die(runOQL($argv[1], $argv[2]));
