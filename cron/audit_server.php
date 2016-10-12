@@ -7,10 +7,10 @@
  * Created Time: 2016-10-11 10:47:33
  **/
 
-require '../etc/config.php';
-require '../lib/csv.class.php';
-require '../composer/vendor/autoload.php';
-require '../composer/vendor/confirm-it-solutions/php-zabbix-api/build/ZabbixApi.class.php';
+require dirname(__FILE__).'/../etc/config.php';
+require dirname(__FILE__).'/../lib/csv.class.php';
+require dirname(__FILE__).'/../composer/vendor/autoload.php';
+require dirname(__FILE__).'/../composer/vendor/confirm-it-solutions/php-zabbix-api/build/ZabbixApi.class.php';
 
 define('ZBXURL', $config['zabbix']['url']);
 define('ZBXUSER', $config['zabbix']['user']);
