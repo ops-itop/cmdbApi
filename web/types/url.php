@@ -14,7 +14,8 @@ function typeUrl($iTopAPI, $value)
 	//$output = "friendlyname, email, phone";
 	$query = "SELECT Url AS url WHERE url.name IN ('$value') AND url.status = 'production'";
 	$data = $iTopAPI->coreGet("Url", $query, $output);
-	$obj = $data['objects'];
+	$data_arr = json_decode($data, true);
+	$obj = $data_arr['objects'];
 	$app = array();
 	$third_person = array();
 	if(!$obj)
@@ -36,6 +37,7 @@ function typeUrl($iTopAPI, $value)
 
 	$app_str = implode("','", $app);
 	$contact = typeApp($iTopAPI, $app_str);
+	$contact = json_decode($contact, true);
 	if(!$contact['objects'])
 	{
 		$contact['objects'] = array();
@@ -48,5 +50,5 @@ function typeUrl($iTopAPI, $value)
 //	"WHERE l.applicationsolution_name IN ('$value') AND p.status='active' AND p.notify='yes'";
 //	$data = $iTopAPI->coreGet("Person", $query, $output);
 
-	return($contact);
+	return(json_encode($contact));
 }

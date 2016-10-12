@@ -22,7 +22,8 @@ function typeDefault($iTopAPI, $type, $value)
 
 	$output = "contacts_list,applicationsolution_list";
 	$data = $iTopAPI->coreGet("FunctionalCI", $query, $output);
-	$result = $data['objects'];
+	$data_arr = json_decode($data, true);
+	$result = $data_arr['objects'];
 	if(!$result){
 		return($data);
 	}
