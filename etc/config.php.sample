@@ -18,3 +18,6 @@ $config['itop']['password'] = "k2odmlx;pwo98";
 $config['zabbix']['url'] = "http://zbx.cn/api_jsonrpc.php";
 $config['zabbix']['user'] = "user";
 $config['zabbix']['password'] = "password";
+
+// email
+$config['mail']['to'] = "xx@qq.com";
