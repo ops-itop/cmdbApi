@@ -82,16 +82,18 @@ function main()
 {
 	$cmdbServer = getAllServer();
 	$ret = audit_monitor($cmdbServer);
+	$sum = count($ret);
 	$csvHelper = new CSV();
 	$csv = $csvHelper->arrayToCSV($ret);
-	print_r($csv);
+	$content = "总数: $sum \n\nSN,  内网IP\n" . $csv;
+	print_r($content);
 
 	$dt = date("Y-m-d", time());
 	$subject = "监控审计报告-$dt";
 	$headers = "From: ". MAILFROM;
 	//$headers = "MIME-Version: 1.0" . "\r\n";
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
-	mail(MAILTO,$subject,$csv,$headers);
+	mail(MAILTO,$subject,$content,$headers);
 	//die(json_encode($ret));
 }
 
