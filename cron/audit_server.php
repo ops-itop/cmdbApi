@@ -63,7 +63,16 @@ function audit_monitor($data)
 		$zbxhost = zabbixHostGet($sn);
 		if(!$zbxhost)
 		{
-			$audit_ret[$sn] = "error";
+			$ips = $server['fields']['ip_list'];
+			$intip = "";
+			foreach($ips as $ip)
+			{
+				if($ip['type'] == "int")
+				{
+					$intip = $ip['ipaddress'];
+				}
+			}
+			$audit_ret[$sn] = $intip;
 		}
 	}
 	return $audit_ret;
