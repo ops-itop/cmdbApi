@@ -135,7 +135,7 @@ function audit_monitor($data)
 }
 
 // cmdb服务器缺失情况审计(已监控但是cmdb未录入)
-function audit_cmdb()
+function audit_cmdb($cmdbdata)
 {
 	global $iTopAPI;
 	$ret = array();
@@ -144,10 +144,18 @@ function audit_cmdb()
 	{
 		$sn = $server['inventory']['asset_tag'];
 		$hostname = $server['host'];
-		$key = array("name" => $sn);
-		$data = $iTopAPI->coreGet("Server", $key);
-		$data = json_decode($data, true);
-		if($data['objects'] == null)
+
+		$isInCmdb = false;
+		foreach($cmdbdata as $server)
+		{
+			if(in_array($sn, $server['fields']))
+			{
+				$isInCmdb = true;
+				break;		
+			}
+		}
+
+		if(!$isInCmdb)
 		{
 			$ret[$sn] = $hostname;
 		}
@@ -163,7 +171,7 @@ function main()
 	$csv_monitor = $csvHelper->arrayToCSV($ret['monitor']);
 	$sum = count($ret['monitor']);
 	$csv_updatecmdb = $csvHelper->arrayToCSV($ret['updatecmdb']);
-	$csv_auditcmdb = $csvHelper->arrayToCSV(audit_cmdb());
+	$csv_auditcmdb = $csvHelper->arrayToCSV(audit_cmdb($cmdbServer));
 	$content = "说明:\n1. 服务器唯一标识为SN(虚拟机使用UUID做为SN)\n";
 	$content = $content . "2. 未加监控服务器: 以CMDB为基准，找出SN在zabbix中不存在的服务器";
 	$content = $content . "\n3. CMDB信息更新情况: 以zabbix inventory信息为准，更新CMDB中服务器的主机名，CPU，型号等信息. 只显示更新失败以及主机名发生变化的服务器。需要人工关注\n";
