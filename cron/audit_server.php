@@ -50,6 +50,12 @@ function zabbixHostGet($name)
 	return($data);
 }
 
+// zabbix获取所有有asset_tag的服务器
+function zabbixAllHostGet()
+{
+	return(json_decode(json_encode(zabbixHostGet("")), true));
+}
+
 // update cmdb
 function updateAssetInfo($cmdbdata, $zbxdata)
 {
@@ -79,7 +85,12 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		$zbxServer['brand_id'] = array("name" => $zbxServer['brand_name']);
 		$zbxServer['model_id'] = array("name" => $zbxServer['model_name'], "brand_name" => $zbxServer['brand_name']);
 		$ret = $iTopAPI->coreUpdate("Server", $key, $zbxServer);
-		return(json_decode($ret, true)['message']);
+		$ret = json_decode($ret, true)['message'];
+		if($zbxServer['hostname'] != $cmdbServer['hostname'])
+		{
+			$ret = $ret . "hostname changed: " . $cmdbServer['hostname'] . " -> " . $zbxServer['hostname'];			
+		}
+		return($ret);
 	}	
 	return(null);
 }
@@ -123,6 +134,27 @@ function audit_monitor($data)
 	return $audit_ret;
 }
 
+// cmdb服务器缺失情况审计(已监控但是cmdb未录入)
+function audit_cmdb()
+{
+	global $iTopAPI;
+	$ret = array();
+	$zbxServers = zabbixAllHostGet();
+	foreach($zbxServers as $server)
+	{
+		$sn = $server['inventory']['asset_tag'];
+		$hostname = $server['host'];
+		$key = array("name" => $sn);
+		$data = $iTopAPI->coreGet("Server", $key);
+		$data = json_decode($data, true);
+		if($data['objects'] == null)
+		{
+			$ret[$sn] = $hostname;
+		}
+	}
+	return $ret;
+}
+
 function main()
 {
 	$cmdbServer = getAllServer();
@@ -131,11 +163,18 @@ function main()
 	$csv_monitor = $csvHelper->arrayToCSV($ret['monitor']);
 	$sum = count($ret['monitor']);
 	$csv_updatecmdb = $csvHelper->arrayToCSV($ret['updatecmdb']);
-	$content = "总数: $sum \n\nSN,  内网IP\n" . $csv_monitor . "\n\nCMDB信息更新情况:\n" . $csv_updatecmdb;
+	$csv_auditcmdb = $csvHelper->arrayToCSV(audit_cmdb());
+	$content = "说明:\n1. 服务器唯一标识为SN(虚拟机使用UUID做为SN\n";
+	$content = $content . "2. 未加监控服务器: 以CMDB为基准，找出SN在zabbix中不存在的服务器";
+	$content = $content . "\n3. CMDB信息更新情况: 以zabbix inventory信息为准，更新CMDB中服务器的主机名，CPU，型号等信息. 只显示更新失败以及主机名发生变化的服务器。需要人工关注\n";
+	$content = $content . "4. 未录入CMDB服务器: 以zabbix inventory为基准，找出SN在zabbix中存在但是CMDB中不存在的服务器，需要人工录入CMDB";
+	$content = $content . "\n\n未加监控服务器总数: $sum \n\nSN,  内网IP\n" . $csv_monitor;
+	$content = $content . "\n\nCMDB信息更新情况:\n\n" . $csv_updatecmdb;
+	$content = $content . "\n\n未录入CMDB服务器:\n\n" . $csv_auditcmdb;
 	print_r($content);
 
 	$dt = date("Y-m-d", time());
-	$subject = "监控审计报告-$dt";
+	$subject = "CMDB-Zabbix双向审计报告-$dt";
 	$headers = "From: ". MAILFROM;
 	//$headers = "MIME-Version: 1.0" . "\r\n";
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
