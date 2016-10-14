@@ -168,9 +168,9 @@ function main()
 	$content = $content . "2. 未加监控服务器: 以CMDB为基准，找出SN在zabbix中不存在的服务器";
 	$content = $content . "\n3. CMDB信息更新情况: 以zabbix inventory信息为准，更新CMDB中服务器的主机名，CPU，型号等信息. 只显示更新失败以及主机名发生变化的服务器。需要人工关注\n";
 	$content = $content . "4. 未录入CMDB服务器: 以zabbix inventory为基准，找出SN在zabbix中存在但是CMDB中不存在的服务器，需要人工录入CMDB";
-	$content = $content . "\n\n未加监控服务器总数: $sum \n\nSN,  内网IP\n" . $csv_monitor;
 	$content = $content . "\n\nCMDB信息更新情况:\n\n" . $csv_updatecmdb;
 	$content = $content . "\n\n未录入CMDB服务器:\n\n" . $csv_auditcmdb;
+	$content = $content . "\n\n未加监控服务器总数: $sum \n\nSN,  内网IP\n" . $csv_monitor;
 	print_r($content);
 
 	$dt = date("Y-m-d", time());
