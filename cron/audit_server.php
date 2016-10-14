@@ -69,14 +69,13 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'ram' => $cmdbdata['fields']['ram']
 	);
 
-	$zbxhost = json_decode(json_encode($zbxdata[0]), true);
 	$zbxServer = array(
-		'name' => $zbxhost['inventory']['asset_tag'],
-		'hostname' => $zbxhost['host'],
-		'brand_name' => $zbxhost['inventory']['vendor'],
-		'model_name' => $zbxhost['inventory']['model'],
-		'cpu' => $zbxhost['inventory']['tag'],
-		'ram' => $zbxhost['inventory']['notes'],
+		'name' => $zbxdata['inventory']['asset_tag'],
+		'hostname' => $zbxdata['host'],
+		'brand_name' => $zbxdata['inventory']['vendor'],
+		'model_name' => $zbxdata['inventory']['model'],
+		'cpu' => $zbxdata['inventory']['tag'],
+		'ram' => $zbxdata['inventory']['notes'],
 	);
 	
 	$key = array("name" => $cmdbServer['name']);
@@ -106,11 +105,20 @@ function audit_monitor($data)
 	{
 		return;
 	}
+
+	// 先一次性取出zabbix中所有的host，并组装成key为sn的数组
+	$zbxServers = zabbixAllHostGet();
+	$zbxAll = array();
+	foreach($zbxServers as $server)
+	{
+		$sn = $server['inventory']['asset_tag'];
+		$zbxAll[$sn] = $server;
+	}
+
 	foreach($data as $key => $server)
 	{
 		$sn = $server['fields']['name'];
-		$zbxhost = zabbixHostGet($sn);
-		if(!$zbxhost)
+		if(!array_key_exists($sn, $zbxAll))
 		{
 			$ips = $server['fields']['ip_list'];
 			$intip = "";
@@ -124,10 +132,10 @@ function audit_monitor($data)
 			$audit_ret['monitor'][$sn] = $intip;
 		}else  // 更新cmdb中的资产信息（以zabbix数据为准）
 		{
-			$updateinfo = updateAssetInfo($server, $zbxhost);
+			$updateinfo = updateAssetInfo($server, $zbxAll[$sn]);
 			if($updateinfo)
 			{
-				$audit_ret['updatecmdb'][$sn] = updateAssetInfo($server, $zbxhost);	
+				$audit_ret['updatecmdb'][$sn] = $updateinfo;	
 			}
 		}
 	}
