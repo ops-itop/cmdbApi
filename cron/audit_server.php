@@ -140,22 +140,20 @@ function audit_cmdb($cmdbdata)
 	global $iTopAPI;
 	$ret = array();
 	$zbxServers = zabbixAllHostGet();
+
+	// 降维处理,方便下面的循环体直接用in_array，减少循环次数
+	$cmdbServers = array();
+	foreach($cmdbdata as $server)
+	{
+		array_push($cmdbServers, $server['fields']['name']);
+	}
+
 	foreach($zbxServers as $server)
 	{
 		$sn = $server['inventory']['asset_tag'];
 		$hostname = $server['host'];
 
-		$isInCmdb = false;
-		foreach($cmdbdata as $server)
-		{
-			if(in_array($sn, $server['fields']))
-			{
-				$isInCmdb = true;
-				break;		
-			}
-		}
-
-		if(!$isInCmdb)
+		if(!in_array($sn, $cmdbServers))
 		{
 			$ret[$sn] = $hostname;
 		}
