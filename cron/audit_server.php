@@ -164,7 +164,7 @@ function main()
 	$sum = count($ret['monitor']);
 	$csv_updatecmdb = $csvHelper->arrayToCSV($ret['updatecmdb']);
 	$csv_auditcmdb = $csvHelper->arrayToCSV(audit_cmdb());
-	$content = "说明:\n1. 服务器唯一标识为SN(虚拟机使用UUID做为SN\n";
+	$content = "说明:\n1. 服务器唯一标识为SN(虚拟机使用UUID做为SN)\n";
 	$content = $content . "2. 未加监控服务器: 以CMDB为基准，找出SN在zabbix中不存在的服务器";
 	$content = $content . "\n3. CMDB信息更新情况: 以zabbix inventory信息为准，更新CMDB中服务器的主机名，CPU，型号等信息. 只显示更新失败以及主机名发生变化的服务器。需要人工关注\n";
 	$content = $content . "4. 未录入CMDB服务器: 以zabbix inventory为基准，找出SN在zabbix中存在但是CMDB中不存在的服务器，需要人工录入CMDB";
