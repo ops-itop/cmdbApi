@@ -31,7 +31,7 @@ function runOQL($class, $key, $isGet=true)
 		$data = $iTopAPI->coreGet($class, $key);
 	}else
 	{
-		$data = $iTopAPI->coreRelated($class, $key);
+		$data = $iTopAPI->extRelatedPerson($class, $key, 'email,phone,friendlyname', array("BusinessProcess", "ApplicationSolution"));
 	}
 	return($data);
 }

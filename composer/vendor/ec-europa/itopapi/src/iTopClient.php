@@ -119,13 +119,35 @@ namespace iTopApi {
             return $this->operation('core/get_related',array(
                 'redundancy' => "true",
                 'key' => $query,
-                'depth' => "5",
+                'depth' => "8",
                 'relation' => "impacts",
                 'direction' => "down",
                 'class' => $class,
             ));
-
         }
-
+        public function coreApply_stimulus($class,$query,$data,$stimulus,$comment=null) {
+            if (is_null($comment))
+                $comment = 'iTopAPI library apply_stimulus '.$class.' from '.$this->user;
+            return $this->operation('core/apply_stimulus',array(
+                'class' => $class,
+                'key' => $query,
+                'fields' => $data,
+                'stimulus' => $stimulus,
+                'comment' => $comment,
+            ));
+        }
+        public function extRelatedPerson($class, $query, $output="*", $hide=array())
+        {
+            return $this->operation('ext/get_related_person', array(
+                'redundancy' => "true",
+                'key' => $query,
+                'depth' => "8",
+                'relation' => "impacts",
+                'direction' => "down",
+                'class' => $class,
+                'output_fields' => $output,
+                'hide_classes' => $hide,
+            ));
+        }
     }
 }
