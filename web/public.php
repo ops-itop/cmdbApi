@@ -22,6 +22,7 @@ $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 function getContact($type, $value) 
 {
 	global $iTopAPI;
+	global $config;
 
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
@@ -29,19 +30,21 @@ function getContact($type, $value)
 	switch($type)
 	{
 	case "app":
-		$data = typeApp($iTopAPI, $value);
+		$data = typeRelated($iTopAPI, "ApplicationSolution", $value, $config['related']['depth']['app']);
+		//$data = typeApp($iTopAPI, $value);
 		break;
 	case "server":
-		$data = typeDefault($iTopAPI,"Server", $value);
+		$data = typeRelated($iTopAPI,"Server", $value, $config['related']['depth']['server']);
 		break;
 	case "ip":
-		$data = typeRelated($iTopAPI, "PhysicalIP", $value, "3");
+		$data = typeRelated($iTopAPI, "PhysicalIP", $value, $config['related']['depth']['server']);
 		break;
 	case "url":
-		$data = typeUrl($iTopAPI, $value);
+		$data = typeRelated($iTopAPI, "Url", $value, $config['related']['depth']['url']);
+		//$data = typeUrl($iTopAPI, $value);
 		break;
 	default:
-		$data = typeRelated($iTopAPI,"FunctionalCI", $value, "3");
+		$data = typeRelated($iTopAPI,"FunctionalCI", $value, $config['related']['depth']['default']);
 	}
 
 	return($data);

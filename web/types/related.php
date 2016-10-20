@@ -39,6 +39,7 @@ function getDot($nodes, $edges)
 
 function typeRelated($iTopAPI, $type, $value, $depth="8") 
 {
+	global $config;
 	if($type == "PhysicalIP") {
 		$query = "SELECT Server AS s JOIN $type AS ip ON ip.connectableci_id=s.id " .
 					"WHERE ip.ipaddress IN ('$value')";
@@ -51,7 +52,7 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 		$query = "SELECT $type AS f WHERE f.$name IN ('$value')";
 	}
 	$output = "friendlyname,email,phone";
-	$hide = array("BusinessProcess", "Team");
+	$hide = $config['related']['hide'];
 	$data = $iTopAPI->extRelatedPerson($type, $query, $output, $hide, $depth);
 
 	// dot code
@@ -81,7 +82,6 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 		}
 	}
 	$dot = getDot($nodes, $edges);
-	global $config;
 	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . $dot;
 	$data_arr['imgurl'] = $imgurl;
 	return(json_encode($data_arr));

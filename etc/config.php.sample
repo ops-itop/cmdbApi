@@ -25,3 +25,11 @@ $config['mail']['from'] = "xx@163.com";
 
 // graphviz
 $config['graph']['url'] = "http://cmdb.cn/chart/api.php";
+
+// related
+$config['related']['hide'] = array("BusinessProcess", "Team");
+$config['related']['depth']['app'] = "1";
+$config['related']['depth']['url'] = "2";
+$config['related']['depth']['server'] = "3";
+$config['related']['depth']['default'] = "3";
+
