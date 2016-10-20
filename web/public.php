@@ -9,6 +9,7 @@
 require '../etc/config.php';
 require '../composer/vendor/autoload.php';
 require 'types/default.php';
+require 'types/related.php';
 require 'types/app.php';
 require 'types/url.php';
 
@@ -34,13 +35,13 @@ function getContact($type, $value)
 		$data = typeDefault($iTopAPI,"Server", $value);
 		break;
 	case "ip":
-		$data = typeDefault($iTopAPI, "PhysicalIP", $value);
+		$data = typeRelated($iTopAPI, "PhysicalIP", $value, "3");
 		break;
 	case "url":
 		$data = typeUrl($iTopAPI, $value);
 		break;
 	default:
-		$data = typeDefault($iTopAPI,"FunctionalCI", $value);
+		$data = typeRelated($iTopAPI,"FunctionalCI", $value, "3");
 	}
 
 	return($data);

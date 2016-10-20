@@ -136,12 +136,12 @@ namespace iTopApi {
                 'comment' => $comment,
             ));
         }
-        public function extRelatedPerson($class, $query, $output="*", $hide=array())
+        public function extRelatedPerson($class, $query, $output="*", $hide=array(), $depth="8")
         {
             return $this->operation('ext/get_related_person', array(
                 'redundancy' => "true",
                 'key' => $query,
-                'depth' => "8",
+                'depth' => $depth,
                 'relation' => "impacts",
                 'direction' => "down",
                 'class' => $class,

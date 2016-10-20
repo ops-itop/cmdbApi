@@ -22,3 +22,6 @@ $config['zabbix']['password'] = "password";
 // email
 $config['mail']['to'] = "xx@qq.com";
 $config['mail']['from'] = "xx@163.com";
+
+// graphviz
+$config['graph']['url'] = "http://cmdb.cn/chart/api.php";
