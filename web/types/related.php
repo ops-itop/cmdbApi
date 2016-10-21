@@ -28,9 +28,9 @@ function getEdge($src, $dest)
 	return $edge;
 }
 
-function getDot($nodes, $edges)
+function getDot($nodes, $edges, $direction)
 {
-	$head = "digraph G{";
+	$head = "digraph G{rankdir=" . $direction . ";";
 	$nodes_str = implode(";", $nodes);
 	$edges_str = implode(";", $edges);
 	$tail = "}";
@@ -81,7 +81,8 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 			}
 		}
 	}
-	$dot = getDot($nodes, $edges);
+	$direction = $config['related']['dot']['direction'];
+	$dot = getDot($nodes, $edges, $direction);
 	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . $dot;
 	$data_arr['imgurl'] = $imgurl;
 	return(json_encode($data_arr));
