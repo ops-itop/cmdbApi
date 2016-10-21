@@ -28,7 +28,7 @@ function getEdge($src, $dest)
 	return $edge;
 }
 
-function getDot($nodes, $edges, $direction)
+function getDot($nodes, $edges, $direction="TB")
 {
 	$head = "digraph G{rankdir=" . $direction . ";";
 	$nodes_str = implode(";", $nodes);
@@ -81,7 +81,13 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 			}
 		}
 	}
-	$direction = $config['related']['dot']['direction'];
+	if(isset($config['related']['dot']['direction']))
+	{
+		$direction = $config['related']['dot']['direction'];
+	}else
+	{
+		$direction = "TB";
+	}
 	$dot = getDot($nodes, $edges, $direction);
 	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . $dot;
 	$data_arr['imgurl'] = $imgurl;
