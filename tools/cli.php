@@ -81,8 +81,8 @@ function export_csv($class, $key)
 					}
 				}
 			}
-			$app_str = implode(";", $apps);
-			$contact_str = implode(";", $contacts);
+			$app_str = implode(";", array_unique($apps));
+			$contact_str = implode(";", array_unique($contacts));
 			$csv = $rds . "," . $app_str . "," . $contact_str;
 			array_push($csv_array, $csv);
 		}	
