@@ -30,6 +30,10 @@ function getEdge($src, $dest)
 
 function getDot($nodes, $edges, $direction="TB")
 {
+	if(!in_array($direction , array("TB", "LR")))
+	{
+		$direction = "TB";
+	}
 	$head = "digraph G{rankdir=" . $direction . ";";
 	$nodes_str = implode(";", $nodes);
 	$edges_str = implode(";", $edges);
@@ -37,7 +41,7 @@ function getDot($nodes, $edges, $direction="TB")
 	return $head . $nodes_str . ";" . $edges_str . ";" . $tail;
 }
 
-function typeRelated($iTopAPI, $type, $value, $depth="8") 
+function typeRelated($iTopAPI, $type, $value, $direction="TB", $depth="8") 
 {
 	global $config;
 	if($type == "PhysicalIP") {
@@ -53,6 +57,10 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 	}
 	$output = "friendlyname,email,phone";
 	$hide = $config['related']['hide'];
+	if(intval($depth)<1)
+	{
+		$depth = "0";
+	}
 	$data = $iTopAPI->extRelatedPerson($type, $query, $output, $hide, $depth);
 
 	// dot code
@@ -80,13 +88,6 @@ function typeRelated($iTopAPI, $type, $value, $depth="8")
 				array_push($edges, $edge);
 			}
 		}
-	}
-	if(isset($config['related']['dot']['direction']))
-	{
-		$direction = $config['related']['dot']['direction'];
-	}else
-	{
-		$direction = "TB";
 	}
 	$dot = getDot($nodes, $edges, $direction);
 	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . $dot;

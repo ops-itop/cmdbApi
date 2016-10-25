@@ -28,8 +28,15 @@ $config['graph']['url'] = "http://cmdb.cn/chart/api.php";
 
 // related
 $config['related']['hide'] = array("BusinessProcess", "Team");
-$config['related']['depth']['app'] = "1";
-$config['related']['depth']['url'] = "2";
-$config['related']['depth']['server'] = "3";
-$config['related']['depth']['default'] = "3";
-$config['related']['dot']['direction'] = "LR";
+$config['related']['depth'] = array(
+	"app" => "1",
+	"url" => "2",
+	"server" => "3",
+	"default" => "3",
+);
+$config['related']['direction'] = array(
+	"app" => "LR",
+	"url" => "LR",
+	"server" => "TB",
+	"default" => "TB",
+);
