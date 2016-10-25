@@ -115,11 +115,11 @@ namespace iTopApi {
             ));
 
         }
-        public function coreRelated($class,$query) {
+        public function coreRelated($class,$query, $depth = "5") {
             return $this->operation('core/get_related',array(
                 'redundancy' => "true",
                 'key' => $query,
-                'depth' => "8",
+                'depth' => $depth,
                 'relation' => "impacts",
                 'direction' => "down",
                 'class' => $class,

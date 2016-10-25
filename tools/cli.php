@@ -76,7 +76,7 @@ function export_csv($class, $key)
 						}
 						$person_key = $obj_person[0] . "::" . $obj_person[1];
 						$person = $persons[$person_key]['fields'];
-						$contact = $person['friendlyname'] . '#' . $person['phone'];
+						$contact = str_replace(")", "|".$person['phone'].")", $person['friendlyname']);
 						array_push($contacts, $contact);
 					}
 				}
