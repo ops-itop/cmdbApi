@@ -115,13 +115,13 @@ namespace iTopApi {
             ));
 
         }
-        public function coreRelated($class,$query, $depth = "5") {
+        public function coreRelated($class,$query, $depth = "5", $direction="down") {
             return $this->operation('core/get_related',array(
-                'redundancy' => "true",
+                'redundancy' => false,
                 'key' => $query,
                 'depth' => $depth,
                 'relation' => "impacts",
-                'direction' => "down",
+                'direction' => $direction,
                 'class' => $class,
             ));
         }
@@ -136,18 +136,26 @@ namespace iTopApi {
                 'comment' => $comment,
             ));
         }
-        public function extRelatedPerson($class, $query, $output="*", $hide=array(), $depth="8")
+
+        /** 
+         *  custom api: ext/get_related
+         *  $class: mandatory, class name
+         *  $key: mandatory, search object
+		 *  $relation: impacts or depends on
+         *  $optional: optional, an array with keys:filter,show_relations,output_fields,depth,direction,redundancy
+         *      - filter: array of class name, like array("Person","Server"). only show objects in filter array
+         *      - show_relations: array of class name, like array("Person", "Server"). onley show relations about class in the array
+		 *      - hide_relations: opposite with show_relations
+         *      - output_fields: array like array("classname"=>"fields")
+         *      - depth: relation depth
+         *      - direction: impacts direction(up or down)
+         *      - redundancy: true of false
+         */
+        public function extRelated($class, $query, $relation="impacts", $optional=array())
         {
-            return $this->operation('ext/get_related_person', array(
-                'redundancy' => "true",
-                'key' => $query,
-                'depth' => $depth,
-                'relation' => "impacts",
-                'direction' => "down",
-                'class' => $class,
-                'output_fields' => $output,
-                'hide_classes' => $hide,
-            ));
+            $mandatory = array('class'=>$class, 'key'=>$query, 'relation'=>$relation);
+            $param = array_merge($mandatory, $optional);
+            return $this->operation('ext/get_related', $param);
         }
     }
 }

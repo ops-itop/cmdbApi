@@ -34,9 +34,19 @@ $config['related']['depth'] = array(
 	"server" => "3",
 	"default" => "3",
 );
-$config['related']['direction'] = array(
+$config['related']['rankdir'] = array(
 	"app" => "LR",
 	"url" => "LR",
 	"server" => "TB",
 	"default" => "TB",
+);
+
+// 相比之前在public.php中写死，这种方法能获得扩展能力，例如当需要查询RDS时，只需要定义'rds'=>"RDS"即可实现精确查询
+$config['map'] = array(
+	"app" => "ApplicationSolution",
+	"server" => "Server",
+	"ip" => "Server",
+	"url" => "Url",
+	"person" => "Person",
+	"default" => "FunctionalCI",
 );

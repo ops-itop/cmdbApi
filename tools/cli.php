@@ -15,7 +15,7 @@ define('ITOPPWD', $config['itop']['password']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-function runOQL($class, $key, $isGet=true, $hide = array(), $depth = "5") 
+function runOQL($class, $key, $isGet="get", $show = array(), $depth = "5", $direction="down") 
 {
 	global $iTopAPI;
 	global $config;
@@ -27,12 +27,20 @@ function runOQL($class, $key, $isGet=true, $hide = array(), $depth = "5")
 		$data = array("code" => "1", "errmsg" => "type error");
 		die(json_encode($data));
 	}
-	if($isGet)
+
+	switch($isGet)
 	{
+	case "get":
 		$data = $iTopAPI->coreGet($class, $key);
-	}else
-	{
-		$data = $iTopAPI->extRelatedPerson($class, $key, 'email,phone,friendlyname', $hide, $depth);
+		break;
+	case "extrelated":
+		$data = $iTopAPI->extRelated($class, $key, "impacts");
+		break;
+	case "related":
+		$data = $iTopAPI->coreRelated($class, $key, "20", $direction);
+		break;
+	default:
+		$data = $iTopAPI->coreGet($class, $key);
 	}
 	return($data);
 }
@@ -45,7 +53,7 @@ function export_csv($class, $key)
 	{
 		$depth = $config['related']['depth']['export_csv'];
 	}
-	$data = json_decode(runOQL($class, $key, false, array(), $depth), true);
+	$data = json_decode(runOQL($class, $key, "extrelated", array(), $depth), true);
 	$persons = $data['objects'];
 	$relations = $data['relations'];
 	$csv_array = array();
@@ -94,12 +102,16 @@ function export_csv($class, $key)
 if(isset($argv[1]) and isset($argv[2])){
 	if(isset($argv[3]))
 	{
+		if($argv[3] == "extrelated")
+		{
+			die(runOQL($argv[1], $argv[2], $argv[3]));
+		}
 		if($argv[3] == "csv")
 		{
 			print_r(export_csv($argv[1], $argv[2]));
 		}else
 		{
-			die(runOQL($argv[1], $argv[2], false));
+			die(runOQL($argv[1], $argv[2], $argv[3]));
 		}
 	}else
 	{
