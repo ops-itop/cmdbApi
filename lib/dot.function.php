@@ -6,12 +6,17 @@
  * Mail: i@annhe.net
  * Created Time: 2016-06-24 12:52:34
  **/
-function getNode($key)
+function getNode($key, $strip=array())
 {
 	$arr = explode("::", $key);
 	$image = "images/" . strtolower($arr[0]) . ".png";
 	$name = $arr[0] . $arr[1];
-	$label = $arr[0] . "::" . $arr[2];
+	//$label = $arr[0] . "::" . $arr[2];
+	$label = $arr[2];
+	foreach($strip as $v)
+	{
+		$label = str_replace($v, "", $label);
+	}
 	$shape = "none";
 	$labelloc = "b";
 	//$node = $name . '[label="' . $label . '", shape=' . $shape . ', image="' . $image . '", labelloc=' . $labelloc . ']';
@@ -45,20 +50,20 @@ function _getDot($nodes, $edges, $rankdir="TB")
 	return $head . $nodes_str . ";" . $edges_str . ";" . $tail;
 }
 
-function getDot($relations, $rankdir)
+function getDot($relations, $rankdir, $strip=array())
 {
 	$nodes = array();
 	$edges = array();
 	foreach($relations as $key => $value)
 	{
-		$node = getNode($key);
+		$node = getNode($key, $strip);
 		if(!in_array($node, $nodes))
 		{
 			array_push($nodes, $node);
 		}
 		foreach($value as $v)
 		{
-			$node = getNode($v['key']);
+			$node = getNode($v['key'], $strip);
 			if(!in_array($node, $nodes))
 			{
 				array_push($nodes, $node);

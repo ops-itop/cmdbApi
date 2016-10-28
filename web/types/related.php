@@ -13,10 +13,11 @@ require __ROOT__ . '/../../lib/dot.function.php';
 function dealData($data, $rankdir)
 {
 	global $config;
+	$strip = $config['node']['strip'];
 	// dot code
 	$data_arr = json_decode($data, true);
 	$relations = $data_arr['relations'];
-	$dot = getDot($relations, $rankdir);
+	$dot = getDot($relations, $rankdir, $strip);
 	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . urlencode($dot);
 	$data_arr['imgurl'] = $imgurl;
 	return(json_encode($data_arr));

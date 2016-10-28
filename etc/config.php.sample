@@ -50,3 +50,7 @@ $config['map'] = array(
 	"person" => "Person",
 	"default" => "FunctionalCI",
 );
+
+// node label删除固定内容，比如主机名后缀都有xxx.com，完全可以不显示
+$config['node']['strip'] = array(".xxx.com");
+
