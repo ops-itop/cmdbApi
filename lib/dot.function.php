@@ -14,7 +14,11 @@ function getNode($key)
 	$label = $arr[0] . "::" . $arr[2];
 	$shape = "none";
 	$labelloc = "b";
-	$node = $name . '[label="' . $label . '", shape=' . $shape . ', image="' . $image . '", labelloc=' . $labelloc . ']';
+	//$node = $name . '[label="' . $label . '", shape=' . $shape . ', image="' . $image . '", labelloc=' . $labelloc . ']';
+	$label = '<<table border="0" cellborder="0">' . 
+		'<tr><td><img src="' . $image . '"/></td></tr>' . 
+		'<tr><td>' . $label . '</td></tr></table>>';
+	$node = $name . '[label=' . $label . ', shape=' . $shape . ']';
 	return $node;
 }
 
