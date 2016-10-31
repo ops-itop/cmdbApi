@@ -19,7 +19,7 @@ define('ITOPPWD', $config['itop']['password']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-function getContact($type, $value, $rankdir = "TB", $depth = "5", $show=array()) 
+function getContact($type, $value, $rankdir = "TB", $depth = "5", $direction="down", $show=array()) 
 {
 	global $iTopAPI;
 	global $config;
@@ -27,7 +27,7 @@ function getContact($type, $value, $rankdir = "TB", $depth = "5", $show=array())
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
-	$data = typeRelated($iTopAPI, $config['map'][$type], $value, $rankdir, $depth, "down", $show);
+	$data = typeRelated($iTopAPI, $config['map'][$type], $value, $rankdir, $depth, $direction, $show);
 	return($data);
 }
 
@@ -79,8 +79,9 @@ if(isset($_GET['type']) and isset($_GET['value'])) {
 	$value = $_GET['value'];
 	$rankdir = ReadParam($_GET, 'rankdir');
 	$depth = ReadParam($_GET, 'depth');
+	$direction = ReadParam($_GET, 'direction', false);
 	$show = array_filter(explode(",", ReadParam($_GET, 'show', false)));
-	die(getContact($type, $value, $rankdir, $depth, $show));
+	die(getContact($type, $value, $rankdir, $depth, $direction, $show));
 }else
 {
 	$data = array("code" => "1", "errmsg" => "type or value error");
