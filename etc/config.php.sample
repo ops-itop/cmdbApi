@@ -20,7 +20,9 @@ $config['zabbix']['user'] = "user";
 $config['zabbix']['password'] = "password";
 
 // email
+$config['mail']['api'] = "http://monitor.cn/api/mail";
 $config['mail']['to'] = "xx@qq.com";
+$config['mail']['cc'] = "xx@qq.com";
 $config['mail']['from'] = "xx@163.com";
 
 // graphviz

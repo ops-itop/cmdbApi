@@ -9,6 +9,7 @@
 
 require dirname(__FILE__).'/../etc/config.php';
 require dirname(__FILE__).'/../lib/csv.class.php';
+require dirname(__FILE__).'/../lib/mail.function.php';
 require dirname(__FILE__).'/../composer/vendor/autoload.php';
 require dirname(__FILE__).'/../composer/vendor/confirm-it-solutions/php-zabbix-api/build/ZabbixApi.class.php';
 
@@ -20,11 +21,28 @@ define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
+define('MAILAPI', $config['mail']['api']);
 define('MAILTO', $config['mail']['to']);
+define('MAILCC', $config['mail']['cc']);
 define('MAILFROM', $config['mail']['from']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
+
+
+// 发邮件
+function sendmail($sub, $content, $format="text")
+{
+	$data = array(
+		"tos" => MAILTO,
+		"cc" => MAILCC,
+		"subject" => $sub,
+		"content" => $content,
+		"from" => MAILFROM,
+		"format" => $format
+	);
+	return(http_mail(MAILAPI, $data));
+}
 
 // iTop 中查询所有服务器列表，仅输出需要审计的字段
 function getAllServer()
@@ -189,10 +207,10 @@ function main()
 
 	$dt = date("Y-m-d", time());
 	$subject = "CMDB-Zabbix双向审计报告-$dt";
-	$headers = "From: ". MAILFROM;
+	//$headers = "From: ". MAILFROM;
 	//$headers = "MIME-Version: 1.0" . "\r\n";
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
-	mail(MAILTO,$subject,$content,$headers);
+	sendmail($subject,$content);
 	//die(json_encode($ret));
 }
 
