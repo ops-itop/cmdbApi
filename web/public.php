@@ -60,7 +60,7 @@ function getDotConfig($cfg, $type)
 	}
 }
 
-function ReadParam($arr, $key, $isConfig=true)
+function ReadParam($arr, $key, $default, $isConfig=true)
 {
 	if(isset($arr[$key]))
 	{
@@ -70,17 +70,17 @@ function ReadParam($arr, $key, $isConfig=true)
 		return(getDotConfig($key, $arr['type']));
 	}else
 	{
-		return("");
+		return($default);
 	}
 }
 
 if(isset($_GET['type']) and isset($_GET['value'])) {
 	$type = $_GET['type'];
 	$value = $_GET['value'];
-	$rankdir = ReadParam($_GET, 'rankdir');
-	$depth = ReadParam($_GET, 'depth');
-	$direction = ReadParam($_GET, 'direction', false);
-	$show = array_filter(explode(",", ReadParam($_GET, 'show', false)));
+	$rankdir = ReadParam($_GET, 'rankdir', "TB");
+	$depth = ReadParam($_GET, 'depth', "8");
+	$direction = ReadParam($_GET, 'direction', "down", false);
+	$show = array_filter(explode(",", ReadParam($_GET, 'show', "", false)));
 	die(getContact($type, $value, $rankdir, $depth, $direction, $show));
 }else
 {
