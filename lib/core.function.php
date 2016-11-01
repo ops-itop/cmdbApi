@@ -91,7 +91,7 @@ function curlPost($api, $data)
 	return($output);
 }
 
-function getImgUrl($api, $dot, $post="60000")
+function getImgUrl($api, $dot, $post=60000)
 {
 	$dotlen = strlen($dot);
 	if($dotlen < $post)
