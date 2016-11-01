@@ -9,7 +9,7 @@
 
 require dirname(__FILE__).'/../etc/config.php';
 require dirname(__FILE__).'/../lib/csv.class.php';
-require dirname(__FILE__).'/../lib/mail.function.php';
+require dirname(__FILE__).'/../lib/core.function.php';
 require dirname(__FILE__).'/../composer/vendor/autoload.php';
 require dirname(__FILE__).'/../composer/vendor/confirm-it-solutions/php-zabbix-api/build/ZabbixApi.class.php';
 

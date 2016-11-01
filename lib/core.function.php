@@ -78,3 +78,39 @@ function getDot($relations, $rankdir, $strip=array())
 	$dot = _getDot($nodes, $edges, $rankdir);
 	return($dot);
 }
+
+function curlPost($api, $data)
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $api);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_POST, 1);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+	$output = curl_exec($ch);
+	curl_close($ch);
+	return($output);
+}
+
+function getImgUrl($api, $dot, $post="60000")
+{
+	$dotlen = strlen($dot);
+	if($dotlen < $post)
+	{
+		$imgurl = $api . "?cht=gv:dot&chl=" . urlencode($dot);
+	}else
+	{
+		$data = array("cht" => "gv:dot", "chl"=>$dot);
+		// 调用chart接口生成图片
+		curlPost($api, $data);
+		$imgurl = str_replace("api.php", "", $api) . "img/" . md5($dot) . "dot.png";
+	}
+	return($imgurl);
+}
+
+/**
+ *  http_mail 函数，接口使用 https://github.com/iambocai/mailer 搭建
+ */
+function http_mail($api, $data)
+{
+	return(curlPost($api, $data));
+}

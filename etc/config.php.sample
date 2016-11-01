@@ -27,6 +27,7 @@ $config['mail']['from'] = "xx@163.com";
 
 // graphviz
 $config['graph']['url'] = "http://cmdb.cn/chart/api.php";
+$config['graph']['postsize'] = 60000;  // dot源码长度超过此配置，使用post方式提交数据
 
 // related
 $config['related']['hide'] = "BusinessProcess,Team,Url";

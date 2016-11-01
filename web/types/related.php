@@ -8,7 +8,7 @@
  **/
 
 define("__ROOT__",dirname(__FILE__));
-require __ROOT__ . '/../../lib/dot.function.php';
+require __ROOT__ . '/../../lib/core.function.php';
 
 function dealData($data, $rankdir)
 {
@@ -18,7 +18,8 @@ function dealData($data, $rankdir)
 	$data_arr = json_decode($data, true);
 	$relations = $data_arr['relations'];
 	$dot = getDot($relations, $rankdir, $strip);
-	$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . urlencode($dot);
+	$imgurl = getImgUrl($config['graph']['url'], $dot, $config['graph']['postsize']);
+	//$imgurl = $config['graph']['url'] . "?cht=gv:dot&chl=" . urlencode($dot);
 	$data_arr['imgurl'] = $imgurl;
 	return(json_encode($data_arr));
 }
