@@ -19,7 +19,7 @@ define('ITOPPWD', $config['itop']['password']);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-function getContact($type, $value, $rankdir = "TB", $depth = "5", $direction="down", $show=array()) 
+function getContact($type, $value, $rankdir = "TB", $depth = "5", $direction="down", $hide=array(), $show=array()) 
 {
 	global $iTopAPI;
 	global $config;
@@ -27,7 +27,7 @@ function getContact($type, $value, $rankdir = "TB", $depth = "5", $direction="do
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
-	$data = typeRelated($iTopAPI, $config['map'][$type], $value, $rankdir, $depth, $direction, $show);
+	$data = typeRelated($iTopAPI, $config['map'][$type], $value, $rankdir, $depth, $direction, $hide, $show);
 	return($data);
 }
 
@@ -80,8 +80,9 @@ if(isset($_GET['type']) and isset($_GET['value'])) {
 	$rankdir = ReadParam($_GET, 'rankdir', "TB");
 	$depth = ReadParam($_GET, 'depth', "8");
 	$direction = ReadParam($_GET, 'direction', "down", false);
+	$hide = array_filter(explode(",", ReadParam($_GET, 'hide', $config['related']['hide'], false)));
 	$show = array_filter(explode(",", ReadParam($_GET, 'show', "", false)));
-	die(getContact($type, $value, $rankdir, $depth, $direction, $show));
+	die(getContact($type, $value, $rankdir, $depth, $direction, $hide, $show));
 }else
 {
 	$data = array("code" => "1", "errmsg" => "type or value error");

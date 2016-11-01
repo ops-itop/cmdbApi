@@ -23,7 +23,7 @@ function dealData($data, $rankdir)
 	return(json_encode($data_arr));
 }
 
-function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direction="down", $show=array()) 
+function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direction="down", $hide=array(), $show=array()) 
 {
 	global $config;
 	if($type == "Person") {
@@ -47,7 +47,7 @@ function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direct
 	$optional = array(
 		'output_fields' => array("Person" => "friendlyname,email,phone"),
 		'show_relations' => $show,
-		'hide_relations' => $config['related']['hide'],
+		'hide_relations' => $hide,
 		'direction' => $direction,
 		'depth' => $depth,
 	);

@@ -29,7 +29,7 @@ $config['mail']['from'] = "xx@163.com";
 $config['graph']['url'] = "http://cmdb.cn/chart/api.php";
 
 // related
-$config['related']['hide'] = array("BusinessProcess", "Team");
+$config['related']['hide'] = "BusinessProcess,Team,Url";
 $config['related']['depth'] = array(
 	"app" => "1",
 	"url" => "2",
