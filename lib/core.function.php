@@ -15,7 +15,7 @@ function getNode($key, $strip=array())
 	$label = $arr[2];
 	foreach($strip as $v)
 	{
-		$label = preg_replace($v, "", $label);
+		$label = preg_replace($v, '\1', $label);
 	}
 	$shape = "none";
 	$labelloc = "b";

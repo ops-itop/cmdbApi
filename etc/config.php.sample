@@ -54,6 +54,6 @@ $config['map'] = array(
 	"default" => "FunctionalCI",
 );
 
-// node label删除固定内容(正则)，比如主机名后缀都有xxx.com，完全可以不显示
-$config['node']['strip'] = array('/.xxx.com$/');
+// node label删除固定内容(正则)，比如主机名后缀都有xxx.com，完全可以不显示(正则需要包含一个括号，替换匹配内容为\1)
+$config['node']['strip'] = array('/(.*).xxx.com$/');
 
