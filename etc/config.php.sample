@@ -9,6 +9,7 @@
 
 $config = array();
 
+$config['rooturl'] = "http://cmdb.xx/api/";
 // 连接
 $config['itop']['url'] = "http://cmdb.xx";
 $config['itop']['user'] = "apiuser";

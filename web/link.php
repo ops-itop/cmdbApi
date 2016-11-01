@@ -33,7 +33,8 @@
 </body>
 </html>
 <?php
-$api = "http://" . $_SERVER['HTTP_HOST'] . "/public.php";
+require '../etc/config.php';
+$api = $config['rooturl'] . "public.php";
 
 $type = $_GET['type'];
 $value = $_GET['name'];
