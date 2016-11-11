@@ -174,9 +174,15 @@ function audit_cmdb($cmdbdata)
 		array_push($cmdbServers, $server['fields']['name']);
 	}
 
+	$i = 1;
 	foreach($zbxServers as $server)
 	{
 		$sn = $server['inventory']['asset_tag'];
+		if($sn == "")
+		{
+			$sn = "blank" . $i;
+			$i++;
+		}
 		$hostname = $server['host'];
 
 		if(!in_array($sn, $cmdbServers))
