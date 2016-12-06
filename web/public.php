@@ -27,7 +27,8 @@ function getContact($type, $value, $rankdir = "TB", $depth = "5", $direction="do
 	$arr = explode(',',$value);
 	$value = implode("','", $arr);
 
-	$data = typeRelated($iTopAPI, $config['map'][$type], $value, $rankdir, $depth, $direction, $hide, $show);
+	isset($config['map'][$type]) ? $type = $config['map'][$type] : die(json_encode(errorMsg("typeerror", $type)));
+	$data = typeRelated($iTopAPI, $type, $value, $rankdir, $depth, $direction, $hide, $show);
 	return($data);
 }
 
@@ -74,6 +75,29 @@ function ReadParam($arr, $key, $default, $isConfig=true)
 	}
 }
 
+function errorMsg($id,$arg="") {
+	$data = array();
+	$data["relations"] = [];
+	$data["objects"] = null;
+	$data["imgurl"] = "";
+
+	switch ($id)
+	{
+	case "missing":
+		$data["code"] = 100;
+	    $data["message"] = "mandatory params missing(type or value)";
+		break;
+	case "typeerror":
+		$data["code"] = 100;
+		$data["message"] = "no definition type: $arg";
+		break;
+	default:
+		$data["code"] = 100;
+		$data["message"] = "unknown error";
+	}
+	return($data);
+}
+
 if(isset($_GET['type']) and isset($_GET['value'])) {
 	$type = $_GET['type'];
 	$value = $_GET['value'];
@@ -85,6 +109,5 @@ if(isset($_GET['type']) and isset($_GET['value'])) {
 	die(getContact($type, $value, $rankdir, $depth, $direction, $hide, $show));
 }else
 {
-	$data = array("code" => "1", "errmsg" => "type or value error");
-	die(json_encode($data));
+	die(json_encode(errorMsg("missing")));
 }
