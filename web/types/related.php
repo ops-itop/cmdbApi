@@ -24,7 +24,7 @@ function dealData($data, $rankdir)
 	return(json_encode($data_arr));
 }
 
-function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direction="down", $hide=array(), $show=array()) 
+function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direction="down", $filter="Person", $hide=array(), $show=array()) 
 {
 	global $config;
 	if($type == "Person") {
@@ -45,11 +45,13 @@ function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direct
 	{
 		$depth = "0";
 	}
+	$filter = explode(",", $filter);
 	$optional = array(
-		'output_fields' => array("Person" => "friendlyname,email,phone"),
+		'output_fields' => $config['output_fields'],
 		'show_relations' => $show,
 		'hide_relations' => $hide,
 		'direction' => $direction,
+		'filter' => $filter,
 		'depth' => $depth,
 	);
 	$data = $iTopAPI->extRelated($type, $query, "impacts", $optional);
