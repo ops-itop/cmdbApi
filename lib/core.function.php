@@ -91,6 +91,15 @@ function curlPost($api, $data)
 	return($output);
 }
 
+function curlGet($url) {
+	$ch = curl_init($url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
+	$out = curl_exec($ch);
+	curl_close($ch);
+	return($out);
+}
+
 function getImgUrl($api, $dot, $post=10000)
 {
 	$dotlen = strlen($dot);

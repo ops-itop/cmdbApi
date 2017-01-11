@@ -65,3 +65,7 @@ $config['output_fields'] = array(
 	"ApplicationSolution" => "id,name,business_criticity,friendlyname",
 );
 
+// availability
+$config['app_sla'] = array("high" => "1", "medium" => "2", "low" => "3", "null" => "4");
+$config['influx'] = array("db" => "tengine", "host" => "127.0.0.1", "port" => "8086");
+$config['influx']['query'] = 'SELECT 1 - median("rate_5xx") - median("rate_499") AS "avail" FROM "trend_365"."rate_d_reqstat" WHERE time > now() - 36h GROUP BY "app", "cluster"';
