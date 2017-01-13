@@ -163,7 +163,8 @@ function emailReport($orig, $sla)
 
 	if(array_key_exists("report_tpl", $config))
 	{
-		$mail = file_get_contents($config['report_tpl']);
+		$path = dirname(__FILE__) . "/" . $config['report_tpl'];
+		$mail = file_get_contents($path);
 		$mail = str_replace('{$content}', $content, $mail);
 		$mail = str_replace('{$title}', $title, $mail);
 		$mail = str_replace('{$report_date}', $report_date, $mail);
