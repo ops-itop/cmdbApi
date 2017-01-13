@@ -9,6 +9,7 @@
 
 require dirname(__FILE__).'/../etc/config.php';
 require dirname(__FILE__).'/../lib/core.function.php';
+require dirname(__FILE__).'/../lib/table.class.php';
 require dirname(__FILE__).'/../composer/vendor/autoload.php';
 
 define('ITOPURL', $config['itop']['url']);
@@ -63,9 +64,32 @@ function queryAvailabilityData($database, $sql)
 	return($series);
 }
 
-function appSLA($app, $sla)
+// 获取联系人列表
+function mailToList($app)
 {
+	global $iTopAPI;
 	global $config;
+	$app = implode("','", $app);
+	//print($app);
+	$oql = "SELECT lnkContactToApplicationSolution AS l WHERE l.applicationsolution_name IN ('$app')";
+	$output_fields = "contact_email";
+	$data = $iTopAPI->coreGet("lnkContactToApplicationSolution", $oql, $output_fields);
+	$data = json_decode($data, true);
+	$to = array();
+	if($data['code'] == 0 && $data['objects'] != null)
+	{
+		$data = $data['objects'];
+		foreach($data as $k => $v)
+		{
+			array_push($to, $v['fields']['contact_email']);
+		}
+	}
+	$to = implode(",", array_unique($to));
+	return($to);
+}
+
+function stripAppName($app)
+{
 	// 处理带端口的app，例如 desktop.8080
 	if(preg_match("/^\w+([-_]\w+\d*)*\.\d+$/", $app))
 	{
@@ -73,6 +97,13 @@ function appSLA($app, $sla)
 		$app = array_slice($app, 0, -1);
 		$app = implode(".", $app);
 	}
+	return($app);
+}
+
+function appSLA($app, $sla)
+{
+	global $config;
+	$app = stripAppName($app);
 	if(array_key_exists($app, $sla)) {
 		return($sla[$app]);
 	}else {
@@ -89,11 +120,14 @@ function emailReport($orig, $sla)
 	{
 		$report[$v] = array();
 	}
+	
+	$apps = array(); // 所有app
 
 	foreach($orig as $k => $v)
 	{
 		$item = array();
 		$item['app'] = $v['tags']['app'];
+		array_push($apps, stripAppName($item['app']));
 		$item['cluster'] = $v['tags']['cluster'];
 		$item['level'] = appSLA($item['app'], $sla);
 		$item['avail'] = (float)$v['values'][0][1];
@@ -110,7 +144,50 @@ function emailReport($orig, $sla)
 			array_push($report[$item['level']], $item);
 		}
 	}
-	return($report);
+
+	// 转换成html表格
+	$mail = "";
+	$content = "";
+	foreach($report as $k => $v)
+	{
+		$table = new Table();
+		$title = "业务级别 $k 报表";
+		$style = "border: 2px solid #cad9ea;";
+		$content .= $table->array2table($v, $title, $style) . "<br><hr/><br>";
+	}
+
+	$mail = $content;
+
+	$title = "APP可用率报表";
+	$report_date = date("Y-m-d" , strtotime("-1 day"));
+
+	if(array_key_exists("report_tpl", $config))
+	{
+		$mail = file_get_contents($config['report_tpl']);
+		$mail = str_replace('{$content}', $content, $mail);
+		$mail = str_replace('{$title}', $title, $mail);
+		$mail = str_replace('{$report_date}', $report_date, $mail);
+	}
+	
+	if($config['report_debug'])
+	{
+		$to = $config['mail']['to'];
+		$cc = $config['mail']['cc'];
+	} else {
+		$to = mailToList($apps);
+		$cc = $config['report_cc'];
+	}	
+
+	// 发邮件
+	$data = array(
+		"tos" => $to,
+		"cc" => $cc,
+		"subject" => $title . "-" . $report_date,
+		"content" => $mail,
+		"from" => $config['mail']['from'],
+		"format" => "html"
+	);
+	return(http_mail(MAILAPI, $data));	
 }
 
 function genAvailabilityPoints($measurement, $orig, $sla)
@@ -135,9 +212,9 @@ function genAvailabilityPoints($measurement, $orig, $sla)
 	return $points;
 }
 
-function writeAvailabilityData($database, $points)
-{
-	$result = $database->writePoints($points, InfluxDB\Database::PRECISION_SECONDS);
+function writeAvailabilityData($database, $points, $retentionPolicy=null)
+{	
+	$result = $database->writePoints($points, InfluxDB\Database::PRECISION_SECONDS, $retentionPolicy);
 	return $result;	
 }
 
@@ -152,7 +229,9 @@ function main()
 
 	$sla = getSLA();
 	$points = genAvailabilityPoints($measurement, $orig, $sla);
-	writeAvailabilityData($database, $points);
+	$retentionPolicy = $config['influx']['rp'];
+	//writeAvailabilityData($database, $points, $retentionPolicy);
+	//emailReport($orig, $sla);
 	print_r(emailReport($orig, $sla));
 }
 

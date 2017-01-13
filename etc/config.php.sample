@@ -67,7 +67,11 @@ $config['output_fields'] = array(
 
 // availability
 $config['app_sla'] = array("high" => "1", "medium" => "2", "low" => "3", "null" => "4");
-$config['influx'] = array("db" => "tengine", "host" => "10.183.91.157", "port" => "8086");
+$config['influx'] = array("db" => "tengine", "host" => "127.0.0.1", "port" => "8086");
 $config['influx']['query'] = 'SELECT 1 - "rate_5xx" - "rate_499" AS "avail" FROM "trend_365"."rate_d_reqstat" WHERE time > now() - 24h AND "cluster" !~ /beta/ GROUP BY "app", "cluster"';
 $config['influx']['measurement'] = "rate_d_level";
+$config['influx']['rp'] = "trend_365";
 $config['app_status'] = array("1" => 0.999, "2" => 0.99, "3" => 0.95);
+$config['report_tpl'] = "../etc/mail_report.tpl";  // 相对于cron目录的路径
+$config['report_debug'] = true;
+$config['report_cc'] = "xxx@qq.com";
