@@ -37,24 +37,32 @@ function sendmail($sub, $content, $format="text")
 	return(http_mail(MAILAPI, $data));
 }
 
-// iTop 中查询所有的business_criticity属性
-function getSLA()
+// iTop 中查询所有的business_criticity属性及联系人信息
+function getAppInfo()
 {
 	global $iTopAPI;
 	global $config;
 	$oql = "SELECT ApplicationSolution AS app WHERE app.status='production'";
-	$output_fields = "name,business_criticity";
+	$output_fields = "name,business_criticity,contact_list_custom";
 	$data = $iTopAPI->coreGet("ApplicationSolution", $oql, $output_fields);
 	$data = json_decode($data, true);
 	if($data['code'] != 0){
 		return array();
 	}
-	$sla = array();
+	$info = array("sla" => array(), "contact" => array());
 	foreach($data['objects'] as $k => $v)
 	{
-		$sla[$v['fields']['name']] = $config['app_sla'][$v['fields']['business_criticity']];	
+		$info['sla'][$v['fields']['name']] = $config['app_sla'][$v['fields']['business_criticity']];	
+		$contacts = $v['fields']['contact_list_custom'];
+		$contact_array = array();
+		foreach($contacts as $key => $value)
+		{
+			array_push($contact_array, preg_replace("/(\w*\d*)(@.*)/i", "$1", $value['contact_email']));
+		}
+		$info['sla'][$v['fields']['name']] = $config['app_sla'][$v['fields']['business_criticity']];	
+		$info['contact'][$v['fields']['name']] = $contact_array;
 	}
-	return $sla;
+	return $info;
 }
 
 function queryAvailabilityData($database, $sql)
@@ -103,7 +111,6 @@ function stripAppName($app)
 function appSLA($app, $sla)
 {
 	global $config;
-	$app = stripAppName($app);
 	if(array_key_exists($app, $sla)) {
 		return($sla[$app]);
 	}else {
@@ -111,7 +118,7 @@ function appSLA($app, $sla)
 	}
 }
 
-function emailReport($orig, $sla)
+function emailReport($orig, $sla, $contacts)
 {
 	global $config;
 	
@@ -127,20 +134,24 @@ function emailReport($orig, $sla)
 	{
 		$item = array();
 		$item['app'] = $v['tags']['app'];
-		array_push($apps, stripAppName($item['app']));
+		$strip_app = stripAppName($item['app']);
+		array_push($apps, $strip_app);
 		$item['cluster'] = $v['tags']['cluster'];
-		$item['level'] = appSLA($item['app'], $sla);
+		$item['level'] = appSLA($strip_app, $sla);
 		$item['avail'] = (float)$v['values'][0][1];
 		$item['status'] = "达标";
 		if(!array_key_exists($item['level'], $config['app_status']))
 		{
 			$item['status'] = "未定级";
 			$item['sla'] = "未定义";
-			array_push($report[$item['level']], $item);
 		}elseif($item['avail'] < $config['app_status'][$item['level']])
 		{
 			$item['sla'] = $config['app_status'][$item['level']];
 			$item['status'] = "不达标";
+		}
+		if($item['status'] != "达标")
+		{
+			$item['联系人'] = appContacts($strip_app, $contacts);
 			array_push($report[$item['level']], $item);
 		}
 	}
@@ -191,7 +202,15 @@ function emailReport($orig, $sla)
 	return(http_mail(MAILAPI, $data));	
 }
 
-function genAvailabilityPoints($measurement, $orig, $sla)
+function appContacts($app, $contacts)
+{
+	if(array_key_exists($app, $contacts)) {
+		return(implode(",",$contacts[$app]));
+	}
+	return("");
+}
+
+function genAvailabilityPoints($measurement, $orig, $sla, $contacts)
 {
 	$points = array();
 
@@ -200,7 +219,9 @@ function genAvailabilityPoints($measurement, $orig, $sla)
 	{
 		$tags = $v['tags'];
 		$app = $tags['app'];
-		$tags['level'] = appSLA($app, $sla);
+		$strip_app = stripAppName($app);
+		$tags['level'] = appSLA($strip_app, $sla);
+		$tags['contacts'] = appContacts($strip_app, $contacts);
 		$tags['date'] = date("Y-m-d", strtotime("-1 day"));
 		$time = strtotime(date("Y-m-d") . " 00:00:00");
 
@@ -228,12 +249,14 @@ function main()
 	$orig = queryAvailabilityData($database, $sql);
 	$measurement = $config['influx']['measurement'];
 
-	$sla = getSLA();
-	$points = genAvailabilityPoints($measurement, $orig, $sla);
+	$appInfo = getAppInfo();
+	$sla = $appInfo['sla'];
+	$contacts = $appInfo['contact'];
+	$points = genAvailabilityPoints($measurement, $orig, $sla, $contacts);
 	$retentionPolicy = $config['influx']['rp'];
-	//writeAvailabilityData($database, $points, $retentionPolicy);
+	writeAvailabilityData($database, $points, $retentionPolicy);
 	//emailReport($orig, $sla);
-	print_r(emailReport($orig, $sla));
+	print_r(emailReport($orig, $sla, $contacts));
 }
 
 main();
