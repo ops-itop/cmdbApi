@@ -144,6 +144,10 @@ function emailReport($orig, $sla, $contacts)
 		{
 			$item['status'] = "未定级";
 			$item['sla'] = "未定义";
+		}elseif($item['level'] == $config['app_sla']['null'] && $item['avail'] < $config['app_status'][$item['level']])
+		{
+			$item['status'] = "未定级";
+			$item['sla'] = "未定义";
 		}elseif($item['avail'] < $config['app_status'][$item['level']])
 		{
 			$item['sla'] = $config['app_status'][$item['level']];
