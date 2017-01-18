@@ -68,7 +68,12 @@ $config['output_fields'] = array(
 // availability
 $config['app_sla'] = array("high" => "1", "medium" => "2", "low" => "3", "null" => "4");
 $config['influx'] = array("db" => "tengine", "host" => "127.0.0.1", "port" => "8086");
-$config['influx']['query'] = 'SELECT 1 - "rate_5xx" - "rate_499" AS "avail" FROM "trend_365"."rate_d_reqstat" WHERE time > now() - 24h AND "cluster" !~ /beta/ GROUP BY "app", "cluster"';
+
+/* influxdb cq存储的时间戳为group by time的起始时间戳，例如group by time(1d,-8h), 1月18号的cq结果存储的时间戳是
+ * 1月17号0点0分0秒的时间戳，因此查询语句需要取到1月17号0点0分0秒的数据（脚本中只取第一个value，因此可以不限定time
+ * 的上限）. time的下限需要根据定时任务设置的时间来算，比如定时任务为9点，那么 time 应大于now() - 34h
+ */
+$config['influx']['query'] = 'SELECT 1 - "rate_5xx" - "rate_499" AS "avail" FROM "trend_365"."rate_d_reqstat" WHERE time > now() - 34h AND "cluster" !~ /beta/ GROUP BY "app", "cluster"';
 $config['influx']['measurement'] = "rate_d_level";
 $config['influx']['rp'] = "trend_365";
 $config['app_status'] = array("1" => 0.999, "2" => 0.99, "3" => 0.95);
