@@ -1,0 +1,17 @@
+#!/bin/bash
+
+############################
+# Usage:
+# File Name: conf.sh
+# Author: annhe  
+# Mail: i@annhe.net
+# Created Time: 2017-01-20 16:09:21
+############################
+
+CMDB_PUBAPI="http://cmdb.cn/api/public.php"
+Depth_app="1,ApplicationSolution"
+Depth_ip="3,Server"
+Depth_rds="2,RDS"
+Depth_mysql="2,MySQL"
+Depth_redis="2,Redis"
+Depth_mongodb="2,MongoDB"
