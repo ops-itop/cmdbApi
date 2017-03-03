@@ -15,6 +15,7 @@
 |direction | 关联方向，up(依赖),down(影响),both(依赖和影响),默认为down |
 |show |控制relation显示的iTop类，逗号分隔|
 |hide |控制relation隐藏的iTop类，逗号分隔|
+|filter |控制objects显示的类型,逗号分隔|
 
 ## 示例
 
