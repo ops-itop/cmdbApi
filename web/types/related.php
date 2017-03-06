@@ -10,12 +10,40 @@
 define("__ROOT__",dirname(__FILE__));
 require __ROOT__ . '/../../lib/core.function.php';
 
-function dealData($data, $rankdir)
+// url监控报警需要支持第三方联系人
+function GetUrlThirdContact($iTopAPI, $value) 
+{
+	$output = "applicationsolution_name, third_email, third_phone";
+	//$output = "friendlyname, email, phone";
+	$query = "SELECT Url AS url WHERE url.name IN ('$value') AND url.status = 'production'";
+	$data = $iTopAPI->coreGet("Url", $query, $output);
+	$data_arr = json_decode($data, true);
+	$obj = $data_arr['objects'];
+	$third_person = array();
+	if(!$obj)
+	{
+		return($data);
+	}
+
+	foreach($obj as $k=>$v)
+	{
+		$person = array(
+			'fields' => array(
+				'email' => $v['fields']['third_email'],
+				'phone' => $v['fields']['third_phone']
+			)
+		);
+		$third_person['Person_third_'.$k] = $person;
+	}
+
+	return($third_person);
+}
+
+function dealData($data_arr, $rankdir)
 {
 	global $config;
 	$strip = $config['node']['strip'];
 	// dot code
-	$data_arr = json_decode($data, true);
 	$relations = $data_arr['relations'];
 	$dot = getDot($relations, $rankdir, $strip);
 	$imgurl = getImgUrl($config['graph']['url'], $dot, $config['graph']['postsize']);
@@ -55,5 +83,15 @@ function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direct
 		'depth' => $depth,
 	);
 	$data = $iTopAPI->extRelated($type, $query, "impacts", $optional);
-	return(dealData($data, $rankdir));
+	$data_arr = json_decode($data, true);
+	
+	// 取url第三方联系人
+	if($type == "Url")
+	{
+		$third = GetUrlThirdContact($iTopAPI, $value);
+		$data_arr['objects'] = array_merge($data_arr['objects'], $third);
+	}
+
+	return(dealData($data_arr, $rankdir));
 }
+
