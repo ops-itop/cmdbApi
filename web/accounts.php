@@ -39,7 +39,7 @@ function getServerInfo($ip)
 	{
 		$server = $v;
 	}
-	if($server['fields']['use_pam'] == "no")
+	if($server['fields']['use_pam'] != "yes")
 	{
 		return(101);
 	}
