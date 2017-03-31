@@ -121,7 +121,7 @@ if(isset($_GET['ip'])) {
 	}
 	if($serverinfo == 102)
 	{
-		die("ERROR");
+		die("NOT FOUND");
 	}
 
 	$users = getUser($ip, $serverinfo);
