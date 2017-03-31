@@ -80,3 +80,6 @@ $config['app_status'] = array("1" => 0.999, "2" => 0.99, "3" => 0.95);
 $config['report_tpl'] = "../etc/mail_report.tpl";  // 相对于cron目录的路径
 $config['report_debug'] = true;
 $config['report_cc'] = "xxx@qq.com";
+
+// accounts
+$config['accounts']['debug'] = true;
