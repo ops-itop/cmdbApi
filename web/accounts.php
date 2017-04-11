@@ -64,18 +64,23 @@ function getUser($ip, $serverinfo)
 
 	$timestamp_0 = date('Y-m-d H:i:s', 86400);
 	$query = "SELECT lnkUserToServer AS l WHERE l.server_id=" . $serverinfo['server_id'] . 
+		" AND l.status='enabled'" . 
 		" AND l.user_status='enabled' AND (l.expiration > NOW() OR l.expiration <= '$timestamp_0')";
 	$data = $iTopAPI->coreGet("lnkUserToServer", $query, "user_name,user_status,sudo");
+	//die($data);
 	$lnks = json_decode($data, true)['objects'];
 
 	$ret = array("users"=>array(), "sudo"=>array());
-	foreach($lnks as $k => $v)
+	if($lnks)
 	{
-		array_push($ret['users'], $v['fields']['user_name']);
-		if($v['fields']['sudo'] == "yes")
+		foreach($lnks as $k => $v)
 		{
-			array_push($ret['sudo'], $v['fields']['user_name']);
-		}	
+			array_push($ret['users'], $v['fields']['user_name']);
+			if($v['fields']['sudo'] == "yes")
+			{
+				array_push($ret['sudo'], $v['fields']['user_name']);
+			}	
+		}
 	}
 	$ret = array("users" => array_unique(array_merge($ret['users'], $serverinfo['contacts'])), 
 		"sudo" => array_unique(array_merge($ret['sudo'], $serverinfo['contacts'])));
