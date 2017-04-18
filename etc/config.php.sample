@@ -83,3 +83,6 @@ $config['report_cc'] = "xxx@qq.com";
 
 // accounts
 $config['accounts']['debug'] = true;
+$config['memcached']['host'] = "localhost";
+$config['memcached']['port'] = 11211;
+$config['memcached']['expiration'] = 604800;

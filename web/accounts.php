@@ -14,6 +14,11 @@ define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
+define('CACHE_HOST', $config['memcached']['host']);
+define('CACHE_PORT', $config['memcached']['port']);
+define('CACHE_EXPIRATION', $config['memcached']['expiration']);
+
+
 // 状态
 define('PAM_OFF', "PAM_OFF");
 define('ACCOUNTS_OK', "ACCOUNTS_OK");
@@ -110,8 +115,49 @@ function checkIP($ip_para)
 	return(false);
 }
 
+// 使用缓存需要配合iTop触发器及action-shell-exec， lnkContactToFunctionalCI对象创建或者工单
+// 审批通过时，需要触发一个脚本去更新缓存。对象删除暂时不能通过触发器，考虑每小时定时任务
+// 或者开发一个trigger-ondelete插件
+// Server的pam开关有变化时，也需要触发操作，需要trigger-onupdate插件
+function setCache($ip, $value)
+{
+	$m = new Memcached();
+	$m->addServer(CACHE_HOST, CACHE_PORT);
+	$expiration = time() + (int)CACHE_EXPIRATION;
+	return($m->set($ip, $value, $expiration));
+}
+
+function getCache($ip)
+{
+	$m = new Memcached();
+	$m->addServer(CACHE_HOST, CACHE_PORT);
+	return($m->get($ip));
+}
+
+function main($ip)
+{
+	$serverinfo = getServerInfo($ip);
+	if($serverinfo == 101)
+	{
+		return(PAM_OFF . "#|");
+	}
+	if($serverinfo == 102)
+	{
+		return("NOT FOUND");
+	}
+
+	$users = getUser($ip, $serverinfo);
+	return(ACCOUNTS_OK . "#" . $users);
+}
+
 if(isset($_GET['ip'])) {
 	$ip = $_GET['ip'];
+	// 设置缓存
+	if(isset($_GET['cache']) && $_GET['cache'] == "set")
+	{
+		$ret = main($ip);
+		die(setCache($ip, $ret));
+	}
 	if(!$config['accounts']['debug'])
 	{
 		if(!checkIP($ip))
@@ -119,18 +165,21 @@ if(isset($_GET['ip'])) {
 			die("Permission denied");
 		}
 	}
-	$serverinfo = getServerInfo($ip);
-	if($serverinfo == 101)
-	{
-		die(PAM_OFF . "#|");
-	}
-	if($serverinfo == 102)
-	{
-		die("NOT FOUND");
-	}
 
-	$users = getUser($ip, $serverinfo);
-	die(ACCOUNTS_OK . "#" . $users);
+	if(isset($_GET['cache']) && $_GET['cache'] == "false")
+	{
+		die(main($ip));
+	}else
+	{
+		// 首先获取缓存内容
+		$ret = getCache($ip);
+		if(!$ret)
+		{
+			$ret = main($ip);
+			setCache($ip, $ret);
+		}
+		die($ret);
+	}
 }else
 {
 	die("ERROR");
