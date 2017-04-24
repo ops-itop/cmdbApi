@@ -2,6 +2,9 @@
 
 action设置SCRIPT_NAME变量为要执行的php脚本，然后使用一个统一的shell脚本作为包裹脚本来异步调用php脚本. 另外，统一的shell脚本还需要其他统一的变量名(主要方便调试，例如在日志中输出工单id或者服务器主机名)，因此iTop设置action parameters时要使用`变量名=值`的方式定义变量，变量列表如下
 
+| 变量名 | 变量值 |
+| -----  | ------ |
+| SCRIPT_NAME | example.php |
 | ID | $this->ref$(工单), $this->friendlyname$(FunctinalCI) |
 | TITLE | $this->title$(工单), $this->hostname$(FunctinalCI) |
 
