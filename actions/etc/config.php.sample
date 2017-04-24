@@ -1,0 +1,10 @@
+<?php
+/**
+ * Usage:
+ * File Name:
+ * Author: annhe  
+ * Mail: i@annhe.net
+ * Created Time: 2017-04-24 11:20:13
+ **/
+
+$config['tasklogdir'] = "logs";
