@@ -152,7 +152,7 @@ function main($ip)
 
 if(isset($_GET['ip'])) {
 	$ip = $_GET['ip'];
-	// 设置缓存
+	// 设置缓存(无需校验IP)
 	if(isset($_GET['cache']) && $_GET['cache'] == "set")
 	{
 		$ret = main($ip);

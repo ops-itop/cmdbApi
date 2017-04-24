@@ -19,8 +19,9 @@ mainlog=$LOGDIR/`echo $0 |awk -F'/' '{print $NF}'`.log
 tasklog=$LOGDIR/$SCRIPT_NAME.log
 SCRIPT=$TASKDIR/$SCRIPT_NAME
 # 启动子脚本，必须要使用&和指定输出(只好是定向到/dev/null) 传递日志路径给脚本
-./$SCRIPT $tasklog &>/dev/null  &
+./$SCRIPT $tasklog &>>$mainlog  &
 
 LOG="$ds - $SCRIPT Stared - $ID - $TITLE"
 echo $LOG
 echo $LOG >> $mainlog
+sed -i '/^$/d' $mainlog
