@@ -8,7 +8,7 @@ action设置SCRIPT_NAME变量为要执行的php脚本，然后使用一个统一
 | ID | $this->ref$(工单), $this->friendlyname$(FunctinalCI) |
 | TITLE | $this->title$(工单), $this->hostname$(FunctinalCI) |
 
-注意 logs目录需要可写权限
+注意 logs目录需要可写权限，最好将actions目录属主改为php运行账号
 
 ## 插件介绍
 执行脚本的动作, 需要php开启shell_exec函数

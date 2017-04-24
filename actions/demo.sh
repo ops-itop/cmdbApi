@@ -13,6 +13,7 @@ cd $d
 ds=`date +%Y%m%d-%H%M%S`
 
 LOGDIR=logs
+[ ! -d $LOGDIR ] && mkdir $LOGDIR
 TASKDIR=tasks
 mainlog=$LOGDIR/`echo $0 |awk -F'/' '{print $NF}'`.log
 tasklog=$LOGDIR/$SCRIPT_NAME.log
