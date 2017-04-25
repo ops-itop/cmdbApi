@@ -64,5 +64,5 @@ if($ips)
 	}	
 }
 
-file_put_contents($log, "$ID - $ret\n", FILE_APPEND);
+file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
 ?>

@@ -2,6 +2,7 @@
 <?
 /**
  * Usage: 用于更新FunctionalCI的contacts属性。action参数 ID=$this->friendlyname$
+ *        也可以单独执行， ID="$hostname" ./update_functionalci_contacts.php 可以批量更新contacts属性
  * File Name: update_functionalci_contacts.php.php
  * Author: annhe  
  * Mail: i@annhe.net
@@ -31,10 +32,10 @@ if($obj)
 	$contacts = implode(",", $contacts_arr);
 	$comment = "update contacts to $contacts from action-shell-exec";
 	$ret = $iTopAPI->coreUpdate("FunctionalCI", $oql, array("contacts"=>$contacts),$comment);
-	die($ret);
+	print_r($ret);
 	$ret = $contacts . " " . json_encode(json_decode($ret, true)['message']);
 } else {
 	$ret = $data;
 }
-file_put_contents($log, "$ID $TITLE $ret\n", FILE_APPEND);
+file_put_contents($log, $config['datetime'] . " - $ID - $TITLE - $ret\n", FILE_APPEND);
 ?>
