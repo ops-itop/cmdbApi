@@ -31,19 +31,23 @@ foreach($obj as $k => $request)
 	$t1 = microtime(true);
 	$msg = CreateAccount($sIds, $user_id, $params);
 	$t2 = microtime(true);
-	$spt['CreateAccount'] = "CreateAccount:" . (string)($t2 - $t1);
+	$spt['CreateAccount'] = "CreateAccount: " . (string)($t2 - $t1);
 
-	$t1 = microtime(true);
+	$t3 = microtime(true);
 	$assign_msg = doAssign($request['key'], $params);
-	$t2 = microtime(true);
-	$spt['doAssign'] = "doAssign" . (string)($t2 - $t1);
+	$t4 = microtime(true);
+	$spt['doAssign'] = "doAssign: " . (string)($t4 - $t3);
+	$spt['Total'] = "Total: " . (string)($t4 - $t1);
 
-	die($assign_msg);
 	// 将执行结果写入工单公共日志
-	$public_log = "账号(lnkUserToServer)添加结果(code 0为成功)<br>" . implode("<br>", $msg). 
-		"<br>后台任务执行时间:<br>" . implode("<br>", $spt);
+	$public_log = "<p>账号(lnkUserToServer)添加结果(code 0为成功)<br>" . implode("<br>", $msg). 
+		"</p><p>自动指派结果<br>" . $assign_msg .
+	"</p><p>后台任务执行时间:<br>" . implode("<br>", $spt);
 	$iTopAPI->coreUpdate("UserRequest", $request['key'], array("public_log" => $public_log), $config['comment']);
 }
+// 写日志
+file_put_contents($log, $config['datetime'] . " - $ID - " . json_encode($msg) . " - " .
+   				json_encode($assign_msg) . "\n", FILE_APPEND);
 
 // lnkUserToServer需要user_id
 function getUserId($caller_id)
@@ -72,6 +76,8 @@ function getServerIds($servers)
 function doAssign($tId, $params)
 {
 	global $spt;
+	global $config;
+	global $iTopAPI;
 	$agents = split("_", $params['admin']);
 	$agent_id = (int)$agents[0];
 	$isFailed = true;
@@ -82,7 +88,7 @@ function doAssign($tId, $params)
 		$t1 = microtime(true);
 		$oAssign = GetAssignInfo($agents);
 		$t2 = microtime(true);
-		$spt["GetAssignInfo"] = $t2 - $t1;
+		$spt["GetAssignInfo"] = "GetAssignInfo(IN doAssign): " . (string)($t2 - $t1);
 		if($oAssign)
 		{
 			$team_id = $oAssign['team_id'];
@@ -110,7 +116,7 @@ function doAssign($tId, $params)
 		$asign = json_decode($iTopAPI->coreApply_stimulus('UserRequest', $tId, array(
 					'team_id' => $team_id,
 					'agent_id' => $agent_id
-				),'ev_assign'),true);
+				),'ev_assign', $config['comment']),true);
 		if($asign['code'] == 0)
 		{
 			$isFailed = false;
@@ -125,6 +131,10 @@ function doAssign($tId, $params)
 	{
 		$msg = "Auto Assign Failed:" .  $msg;
 	}
+	if(!$msg)
+	{
+		$msg = "doAssign succ";
+	}
 	return($msg);
 }
 
@@ -137,9 +147,11 @@ function GetAssignInfo($oIds)
 	// 随机取一个联系人
 	$oWinnerId = $oIds[array_rand($oIds, 1)];
 	$oPerson = json_decode($iTopAPI->coreGet("Person", $oWinnerId, "org_id, team_list"), true)['objects'];
+	$my_team = array();
 	foreach($oPerson as $k => $v)
 	{
 		$org_id = $v['fields']['org_id'];
+		$my_team = $v['fields']['team_list'];
 	}
 	$oOrg = json_decode($iTopAPI->coreGet("Organization", $org_id, 'deliverymodel_id'), true)['objects'];
 	foreach($oOrg as $k => $v)
@@ -147,23 +159,24 @@ function GetAssignInfo($oIds)
 		$deliverymodel_id = $v['fields']['deliverymodel_id'];
 	}
 	$oDeliveryModel = json_decode($iTopAPI->coreGet("DeliveryModel", $deliverymodel_id), true)['objects'];
-	die(json_encode($oDeliveryModel));
-	$oDeliveryModel = MetaModel::GetObject("DeliveryModel", $deliverymodel_id);
-	
+
 	// 用户所属组成的交付模式的contact列表
-	$aim_team = $oDeliveryModel->Get("contacts_list")->ToArrayOfValues();
+	$contacts = array();
 	$list_aim_team = array();
-	foreach($aim_team as $v)
+	foreach($oDeliveryModel as $k => $v)
 	{
-		array_push($list_aim_team, $v['lnkDeliveryModelToContact.contact_id']);
+		$contacts = $v['fields']['contacts_list'];
 	}
-	
+	foreach($contacts as $k => $v)
+	{
+		$list_aim_team[] = $v['contact_id'];
+	}
+
 	// 用户的team列表
-	$my_team = $oPerson->Get("team_list")->ToArrayOfValues();
 	$list_my_team = array();
 	foreach($my_team as $v)
 	{
-		array_push($list_my_team, $v['lnkPersonToTeam.team_id']);
+		$list_my_team[] = $v['team_id'];
 	}
 	
 	$all_team = array_intersect($list_aim_team, $list_my_team);
@@ -205,5 +218,4 @@ function CreateAccount($sIds, $user_id, $params)
 	return($msg);
 }
 
-file_put_contents($log, $config['datetime'] . " - $ID - " . json_encode($msg) . "\n", FILE_APPEND);
 ?>
