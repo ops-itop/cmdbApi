@@ -71,3 +71,79 @@ public.php?type=ip&value=10.0.0.2&filter=Server&show=Server,Cluster,Rack,Applica
 
 ![](preview/preview.png)
 
+## 部署方式建议
+
+cmdbApi监听本地端口
+
+```
+server {
+	listen      127.0.0.1:8090;
+	access_log logs/cmdbapi.log main;
+	root /opt/wwwroot/cmdb.xxx.cn/cmdbApi/web;
+
+	include enable-php.conf;
+
+	location / {
+		index  index.html index.htm index.php;
+	}
+
+	location ~ /\.
+	{
+		deny all;
+	}
+
+}
+```
+
+在cmdb配置文件里做反向代理(chart接口也同样操作)
+
+```
+upstream graphviz-api {
+	server 127.0.0.1:8091;
+}
+
+upstream cmdb-pubapi {
+	server 127.0.0.1:8090;
+}
+
+server {
+	listen      80;
+	server_name  cmdb.xxx.cn;
+	access_log logs/cmdb.xxx.cn.log main;
+	root /opt/wwwroot/cmdb.xxx.cn/web;
+
+	include enable-php.conf;
+
+	location / {
+		index  index.html index.htm index.php;
+	}
+	
+	location /data/ {
+		deny all;
+	}
+	
+	location ^~ /api/ {
+		proxy_pass http://cmdb-pubapi/;
+		proxy_set_header     X-Forwarded-For $proxy_add_x_forwarded_for;
+	}
+
+	location ^~ /chart/ {
+		proxy_pass http://graphviz-api/;
+	}
+	location ~ .*\.(gif|jpg|jpeg|png|bmp|swf)$
+	{
+		expires      30d;
+	}
+
+	location ~ .*\.(js|css)?$
+	{
+		expires      12h;
+	}
+
+	location ~ /\.
+	{
+		deny all;
+	}
+
+}
+```
