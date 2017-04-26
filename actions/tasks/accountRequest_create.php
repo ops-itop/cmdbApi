@@ -61,13 +61,17 @@ function getUserId($caller_id)
 	}
 }
 
-// 获取服务器id列表
+// 获取服务器id列表 需要过滤掉非手动添加及非Server的配置项
 function getServerIds($servers)
 {
+	die(json_encode($servers));
 	$sIds = array();
 	foreach($servers as $k => $v)
 	{
-		$sIds[] = $v['functionalci_id'];
+		if($v['functionalci_id_finalclass_recall'] == "Server" && $v['impact_code'] == "manual")
+		{
+			$sIds[] = $v['functionalci_id'];
+		}
 	}
 	return($sIds);
 }
