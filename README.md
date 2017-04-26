@@ -94,8 +94,28 @@ server {
 
 }
 ```
+cmdbApi画图依赖 [chart](https://github.com/annProg/chart)接口，此接口用于将dot源码转换为图片
 
-在cmdb配置文件里做反向代理(chart接口也同样操作)
+```
+server {
+	listen      127.0.0.1:8091;
+	access_log logs/cmdbchart.log main;
+	root /opt/wwwroot/cmdb.xxx.cn/chart/;
+
+	include enable-php.conf;
+
+	location / {
+		index  index.html index.htm index.php;
+	}
+
+	location ~ /\.
+	{
+		deny all;
+	}
+
+}
+```
+在cmdb配置文件里做反向代理
 
 ```
 upstream graphviz-api {
