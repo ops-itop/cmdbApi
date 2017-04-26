@@ -26,6 +26,7 @@ if($obj)
 	$comment = "update from action-shell-exec";
 	foreach($obj as $k => $v)
 	{
+		$t1 = microtime(true);
 		$caller_id = $v['fields']['caller_id'];
 		foreach($v['fields']['functionalcis_list'] as $key => $item)
 		{
@@ -43,7 +44,10 @@ if($obj)
 				$msg[] = "服务器 ". $item['functionalci_id_friendlyname'] . ": " . $aMsg;
 			}
 		}
-		$iTopAPI->coreUpdate('UserRequest', $oql, array("public_log"=>implode("<br>", $msg)), $comment);
+		$t2 = microtime(true);
+		$spt = "更新账号状态耗时: " . (string)($t2 - $t1) . "</p>";
+		$public_log = "<p>账号更新结果:<br>" . implode("<br>", $msg) . "</p><p>" . $spt;
+		$iTopAPI->coreUpdate('UserRequest', $oql, array("public_log"=>$public_log), $comment);
 	}
 	$ret =  implode(",", $msg);
 } else {
