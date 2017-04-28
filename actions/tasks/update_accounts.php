@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?
 /**
- * Usage: 用于更新lnkUserToServer状态，并更新accounts.php的缓存。action参数 ID=$this->ref$
+ * Usage: 从工单触发:用于更新lnkUserToServer状态，并更新accounts.php的缓存。action参数 ID=$this->ref$
  * File Name: update_accounts.php
  * Author: annhe  
  * Mail: i@annhe.net
