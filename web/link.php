@@ -116,7 +116,7 @@ if(!isset($_GET['type']) || !isset($_GET['name']))
 }
 
 $type = $_GET['type'];
-$value = $_GET['name'];
+$value = preg_replace("/\s+/s", ",", $_GET['name']);
 $hide_arr = array();
 foreach($_GET as $k => $v)
 {
@@ -128,6 +128,7 @@ foreach($_GET as $k => $v)
 $hide = implode(",", $hide_arr);
 
 $url = $api . "?type=$type&value=$value&rankdir=LR&direction=both&hide=$hide&depth=20";
+print('<p><a href="' . $url . '" target="_blank">API链接</a></p>');
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
