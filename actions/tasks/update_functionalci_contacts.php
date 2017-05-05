@@ -71,10 +71,8 @@ function updateUpstream($fid)
 		{
 			$contacts_arr[] = preg_replace('/@.*/s', '', $v['fields']['email']);	
 		}
-		return(doUpdate($fid, $contacts_arr));
-		
 	}
-	return($data);
+	return(doUpdate($fid, $contacts_arr));
 }
 
 function doUpdate($fid,$contacts_arr)
