@@ -1,40 +1,119 @@
+<!DOCTYPE HTML>
 <html>
 <head>
+<link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" media="screen">
+<meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+<style type="text/css">
+body { 
+	width:90%; 
+	margin:auto;
+	font-size: large;
+}
+#content {
+	box-shadow: 0 0 5px #BBB;
+/*	height: 1000px;*/
+	background: #F7F7F7;
+	border: 1px solid #ccc; 
+	padding: 30px 100px 60px 10px;
+	margin-top: 50px;
+}
+#editor {
+	width: 45%;
+	float: left;
+}
+#preview {
+	width: 45%;
+	float: right;
+}
+#img {
+	margin-top: 50px;
+	margin-left: 50px;	
+}
+</style>
 <title>对象关系图查询</title>
 </head>
 <body>
-<form action="link.php" method="GET">
+<div id="content">
+<form action="link.php" method="GET" class="form-horizontal">
 	<p>请选择对象类型: 
 	<select name="type">
-		<option value="rds">RDS</option>
-		<option value="app">APP</option>
-		<option value="domain">域名</option>
-		<option value="server">服务器</option>
-		<option value="ip">IP地址</option>
-		<option value="mongo">MongoDB</option>
-		<option value="redis">Redis</option>
-		<option value="rack">机架</option>
-		<option value="person">人员</option>
-	</select>
+<?php
+	$html = "";
+	$options = array("rds" => "RDS",
+					"app" => "APP",
+					"domain" => "域名",
+					"server" => "服务器",
+					"ip" => "IP地址",
+					"mongo" => "MongoDB",
+					"redis" => "Redis",
+					"rack" => "机架",
+					"person" => "人员");
+	$selected = "app";
+	if(isset($_GET['type']))
+	{
+		$selected = $_GET['type'];
+	}
+	foreach($options as $k=>$v)
+	{
+		if($k == $selected)
+		{
+			$html .= '<option value="' . $k . '" selected="selected">' . $v . '</option>';
+		}else {
+			$html .= '<option value="' . $k . '">' . $v . '</option>';
+		}
+	}
+	$html .= '</select>';
+	print($html);
+?>
 	<p>
-	<p>请输入对象名称: <input type="text" name="name"/></p>
-	<p>隐藏对象类型: <label><input name="hide_0" type="checkbox" value="Url" checked="checked"/>Url</label>
-	 <label><input name="hide_1" type="checkbox" value="BusinessProcess" checked="checked"/>业务线</label>
-	 <label><input name="hide_2" type="checkbox" value="Team" checked="checked"/>团队</label>
-	 <label><input name="hide_3" type="checkbox" value="Server"/>Server</label>
-	 <label><input name="hide_4" type="checkbox" value="Rack"/>机架</label>
-	 <label><input name="hide_5" type="checkbox" value="MongoDB"/>MongoDB</label>
-	 <label><input name="hide_6" type="checkbox" value="RDS"/>RDS</label>
-	 <label><input name="hide_7" type="checkbox" value="Redis"/>Redis</label>
-	 <label><input name="hide_8" type="checkbox" value="Domain"/>域名</label>
+	<p>请输入对象名称: <input type="text" name="name" value="<?php if(isset($_GET['name'])) echo $_GET['name'];?>"/></p>
+	<p>隐藏对象类型:
+<?php
+	$hides = array("Url"=>"Url",
+		"BusinessProcess" => "业务线",
+		"Team" => "团队",
+		"Server" => "服务器",
+		"Rack" => "机柜",
+		"MongoDB" => "MongoDB",
+		"RDS" => "RDS",
+		"Redis" => "Redis",
+		"Domain" => "域名");
+	$html = "";
+	$checked = array("Url", "BusinessProcess", "Team");
+	$newchecked = array();
+	foreach($_GET as $k=>$v)
+	{
+		if(preg_match("/hide_.*/", $k))
+		{
+			$newchecked[] = $v;	
+		}
+	}
+	if(count($newchecked)>0)
+	{
+		$checked = $newchecked;	
+	}
+	foreach($hides as $k => $v)
+	{
+		if(in_array($k, $checked)){
+			$html .= '<label><input name="hide_' . $k . '" type="checkbox" value="' . $k . '" checked="checked"/>' . $v . "</label>\n";
+		}else{
+			$html .= '<label><input name="hide_' . $k . '" type="checkbox" value="' . $k . '"/>' . $v . "</label>\n";
+		}
+	}
+	print($html);
+?>
 	</p>
 	<input type="submit" value="Submit" />
 </form>
-</body>
-</html>
+<div id="img">
 <?php
 require '../etc/config.php';
 $api = $config['rooturl'] . "public.php";
+
+if(!isset($_GET['type']) || !isset($_GET['name']))
+{
+	return;
+}
 
 $type = $_GET['type'];
 $value = $_GET['name'];
@@ -55,8 +134,18 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 curl_setopt($ch, CURLOPT_HEADER, 0);
 $output = curl_exec($ch);
 curl_close($ch);
-
-$imgurl = json_decode($output, true)['imgurl'];
-
-$ret = '<img src="' . $imgurl . '" />';
-print($ret);
+$ret = json_decode($output, true);
+$imgurl = $ret['imgurl'];
+if($ret['relations'])
+{
+	$ret = '<img src="' . $imgurl . '" />';
+	print($ret);
+}else
+{
+	print("<h2>此对象无图像</h2>");
+}
+?>
+</div>
+</div>
+</body>
+</html>
