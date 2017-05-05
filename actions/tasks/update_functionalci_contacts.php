@@ -38,7 +38,7 @@ if($data['objects'])
 	}
 	$result[] = "ApplicationSolution:" . doUpdate($ID,$contacts_arr);
 }else{
-	$result[] = $data;
+	$result[] = "readAppError";
 }
 
 // 更新上游配置项的联系人
@@ -56,7 +56,7 @@ if($data['relations'])
 		}
 	}
 }else{
-	$result[] = $data;	
+	$result[] = "noUpstream";	
 }
 
 function updateUpstream($fid)
