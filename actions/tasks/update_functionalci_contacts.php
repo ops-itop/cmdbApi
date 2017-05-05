@@ -72,8 +72,11 @@ function updateUpstream($fid)
 			$contacts_arr[] = preg_replace('/@.*/s', '', $v['fields']['email']);	
 		}
 	}
-	// contacts字段最多支持255个字符，因此这里取contacts_arr的前10个作为contacts字段，多余的忽略
-	$contacts_arr = array_slice($contacts_arr, 0, 10);
+	// contacts字段最多支持255个字符，因此这里取contacts_arr的前5个作为contacts字段，多余的忽略
+	if(count($contacts_arr) > 10)
+	{
+		$contacts_arr = array_slice($contacts_arr, 0, 5);
+	}
 	return(doUpdate($fid, $contacts_arr));
 }
 
