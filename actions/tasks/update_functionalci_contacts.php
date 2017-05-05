@@ -3,6 +3,7 @@
 /**
  * Usage: 用于更新FunctionalCI(除Server外, MiddleWare,Domain等contacts属性取下游App的contacts)的contacts属性。
  * 触发器作用于lnkContactToApplicationSolution， action参数: ID=>$this->applicationsolution_id$
+ * 也作用于lnkApplicationSolutionToFunctionalCI, app依赖变更时也需要更新联系人， action参数: ID=>$this->applicationsolution_id$
  * 也可以单独执行， ID="$id" ./update_functionalci_contacts.php 可以批量更新contacts属性
  * File Name: update_functionalci_contacts.php
  * Author: annhe  
