@@ -4,7 +4,7 @@
  * Usage: 用于更新Server的contacts属性,Server和其他FunctionalCI不一样，是直接取contacts_list作为联系人。触发器作用
  * 于lnkContactToFunctionalCI, action参数 ID=$this->functionalci_id$
  * 也可以单独执行， ID="$id" ./update_server_contacts.php 可以批量更新contacts属性
- * File Name: update_server_contacts.php.php
+ * File Name: update_server_contacts.php
  * Author: annhe  
  * Mail: i@annhe.net
  * Created Time: 2017-04-24 17:08:30
