@@ -16,6 +16,7 @@ require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
 $TITLE = getenv("TITLE");
+$DEBUG = getenv("DEBUG");
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
 
 // 取app上游的一级关联，并排除Server和集群,App(上游app的联系人不受下游app影响),机柜等
@@ -26,7 +27,10 @@ $optional = array("filter"=>$filter,"hide_relations"=>$hide_relations,"depth"=>1
 	"direction"=>"up","output_fields"=>$output_fields);
 
 // 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等3s
-sleep(3);
+if(!$DEBUG)
+{
+	sleep(3);
+}
 $data = json_decode($iTopAPI->extRelated("ApplicationSolution", $ID, "impacts", $optional), true);
 
 $result = array();

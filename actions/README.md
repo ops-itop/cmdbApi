@@ -7,6 +7,7 @@ action设置SCRIPT_NAME变量为要执行的php脚本，然后使用一个统一
 | SCRIPT_NAME | example.php |
 | ID | $this->ref$(工单), $this->friendlyname$(FunctinalCI) |
 | TITLE | $this->title$(工单), $this->hostname$(FunctinalCI) |
+| DEBUG | true or false, update_functionalci_contacts.php 支持此变量，用于延迟更新，防止缓存造成的影响, 当设置为true时，用于命令行手动更新时取消延迟 |
 
 注意 logs目录需要可写权限，最好将actions目录属主改为php运行账号
 
