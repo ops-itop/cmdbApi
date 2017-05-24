@@ -73,3 +73,6 @@ echo "$ds  $THIS_NAME - $THIS_HOSTNAME" >> demo.log
 
 注意，变量定义时不要带引号，插件会自动加上引号。
 
+### 2.3.3 rest api 补丁
+task/ticket_robot.php 需要 取service_details, 2.3.3的rest api不支持AttributeCustom类型的Fields，需要打补丁（itop_restapi_2.3.3.patch），复制补丁文件到iTop根目录，执行 patch -p0 < itop_restapi_2.3.3.patch
+

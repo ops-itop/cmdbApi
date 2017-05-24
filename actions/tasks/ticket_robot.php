@@ -141,6 +141,10 @@ function UpdateObj()
 
 if($data['objects'])
 {
+	/** 
+	 * 这里需要取service_details, 2.3.3的rest api不支持AttributeCustom类型的Fields，需要打补丁
+	 * 补丁在 ../itop_restapi_2.3.3.patch
+	 */
 	$Ticket = reset($data['objects']);
 	$user_data = $Ticket['fields']['service_details']['user_data'];
 	$template_id = $Ticket['fields']['service_details']['template_id'];
