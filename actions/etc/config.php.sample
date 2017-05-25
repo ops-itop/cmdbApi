@@ -23,6 +23,7 @@ $config['datetime'] = date("Y-m-d H:i:s");
 $config['comment'] = "update from action-shell-exec";
 
 // 配置工单自动指派规则
-$config['ticket']['plan'] = array("my.email");  // 使用login
-$config['ticket']['opsteam'] = "Helpdesk";		// 使用team name
-$config['ticket']['special'] = array("RDS申请"=>"my.email");  // 使用服务名称=>用户login
+$config['ticket']['plan'] = array("1");  // 使用id
+$config['ticket']['opsteam'] = 15;		// 使用team id
+$config['ticket']['allstaff'] = 16; 	// 全员team id
+$config['ticket']['special'] = array("RDS申请"=>"1");  // 使用服务名称=>用户id

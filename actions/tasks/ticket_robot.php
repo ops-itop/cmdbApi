@@ -10,17 +10,33 @@
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
-// 默认UserRequest，action配置时需要设置参数 FINALCLASS=$this->finalclass$
-$FINALCLASS = getenv("FINALCLASS");
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
 
-$FINALCLASS==false ? $sClass = "UserRequest" : $sClass = $FINALCLASS;
+$data = json_decode($iTopAPI->coreGet("Ticket", $ID), true);
 
-$query = "SELECT " . $sClass . " WHERE id='" . $ID . "'";
+if($data['code'] != 0)
+{
+	$ret = $data['message'];
+	$sClass = "Ticket";
+	writeLog($ret);
+	die();
+}
 
-$data = json_decode($iTopAPI->coreGet($sClass, $query), true);
+$Ticket = reset($data['objects']);
+$sClass = $Ticket['fields']['finalclass'];
+$data = json_decode($iTopAPI->coreGet($sClass, $ID), true);
 
 $ret = null;
+
+// 写日志
+function writeLog($ret)
+{
+	global $ID;
+	global $sClass;
+	global $log;
+	global $config;
+	file_put_contents($log , $config['datetime'] . " - $ID - $sClass - $ret \n", FILE_APPEND);
+}
 
 /**
  * 资源申请工单创建资源对象
@@ -77,62 +93,120 @@ function UpdateIncident()
 {}
 
 /**
+ * 获取事件工单指派信息
+ * 根据联系人所在组织的交付模式获取该交付模式的联系人（团队），判断该联系人的团队ID
+ */
+function GetIncidentAssignInfo($Ticket, $allstaff)
+{
+	global $iTopAPI;
+	$appId = "";
+	$plan = array();
+	foreach($Ticket['fields']['functionalcis_list'] as $k => $v)
+	{
+		if($v["functionalci_id_finalclass_recall"] == "ApplicationSolution" && $v["impact_code"] == "manual")
+		{
+			$appId = $v["functionalci_id"];
+		}
+	}
+	if($appId)
+	{
+		$app = json_decode($iTopAPI->coreGet("ApplicationSolution", $appId, "contact_list_custom"), true);
+		$contacts = reset($app['objects'])['fields']['contact_list_custom'];
+		$personIds = array();
+		foreach($contacts as $k => $v)
+		{
+			if($v['contact_id_finalclass_recall'] == "Person")
+			{
+				$personIds[] = $v['contact_id'];
+			}
+		}
+		
+		$query = "SELECT Person WHERE id IN (" . implode("','", $personIds) . ")";
+		$persons = json_decode($iTopAPI->coreGet("Person", $query, "login,team_list"), true);
+		
+		if($persons['objects'])
+		{
+			// 检查person是否在$allstaff团队里，如果不在，则添加进去
+			foreach($persons['objects'] as $k => $v)
+			{
+				$plan[] = $v['key'];
+				$allteam = array();
+				foreach($v['fields']['team_list'] as $id => $team)
+				{
+					$allteam[] = $team['team_id'];
+				}
+				if(!in_array($allstaff, $allteam))
+				{
+					$iTopAPI->coreCreate("lnkPersonToTeam", array(
+						"person_id"=>$v['key'],
+						"team_id"=>$allstaff
+					));
+				}
+			}
+			sort($plan);
+		}
+	}
+	return($plan);
+}
+
+/**
  * 指派工单
  * 根据配置文件自动指派工单（排班）
  */
 function AssignUserRequest($Ticket)
 {
-	if($Ticket['fields']['finalclass'] != "UserRequest")
-	{
-		return;
-	}
-
 	global $iTopAPI;
 	global $config;
+	global $sClass;
+	
 	$servicesubcategory = $Ticket['fields']['servicesubcategory_name'];
 	extract($config['ticket']);
+	$team_id = $opsteam; // 默认分配给运维团队
+	
+	// 如果是事件工单，取关联app的联系人，按字典排序作为$plan，并使用allstaff团队
+	if($sClass== "Incident")
+	{
+		$plan = GetIncidentAssignInfo($Ticket, $allstaff);
+		$team_id = $allstaff;
+	}
 	
 	// get oAssign
-	$agent = NULL;
+	$agent_id = NULL;
 	if(is_array($special) && array_key_exists($servicesubcategory, $special))
 	{
-		$agent = $special[$servicesubcategory];
+		$agent_id = $special[$servicesubcategory];
 	}elseif(is_array($plan))
 	{
 		$week = date("W", time());
 		$len = count($plan);
-		$agent = $plan[$week%$len];
+		$agent_id = $plan[$week%$len];
 	}
 
-	// 自动指派用户请求
-	if($agent && $opsteam)
+	// 自动指派
+	if($agent_id && $team_id)
 	{
-		$ret = json_decode($iTopAPI->coreApply_stimulus('UserRequest', $Ticket['key'], array(
-			'agent_id' => array("login"=>$agent),
-			'team_id' => array("name" => $opsteam)
+		$ret = json_decode($iTopAPI->coreApply_stimulus($sClass, $Ticket['key'], array(
+			'agent_id' => $agent_id,
+			'team_id' => $team_id
 		),'ev_assign'),true);
-
 		if($ret['code'] == 0)
 		{
-			$msg = "自动指派成功: 指派给" . $agent; 
+			$msg = "自动指派成功: 指派给 " . reset($ret['objects'])['fields']['agent_id_friendlyname']; 
 		}else
 		{
 			$msg = "自动指派失败: " . $ret['message'];
 		}
+	}else
+	{
+		$msg = "自动指派失败：agent_id 或者 team_id 异常";
 	}
 
-	$iTopAPI->coreUpdate("UserRequest", $Ticket['key'], array(
+	$iTopAPI->coreUpdate($sClass, $Ticket['key'], array(
 		"public_log" => $msg
 	));
+	return($msg);
 }
 
-/**
- * 获取指派信息(用于事件管理)
- * 根据联系人所在组织的交付模式获取该交付模式的联系人（团队），判断该联系人的团队ID
- */
-function GetAssignInfo()
-{
-}
 
 // 更新对象
 function UpdateObj()
@@ -154,10 +228,11 @@ if($data['objects'])
 	$type = $template['fields']['type'];
 
 	switch($type) {
-		case "new": CreateObj($oClass, $Ticket); AssignUserRequest($Ticket);break;
+		case "new": $ret = CreateObj($oClass, $Ticket); $ret .= AssignUserRequest($Ticket);break;
+		case "incident": $ret = AssignUserRequest($Ticket);break;
 		default:break;
 	}
 
+	writeLog($ret);
 }
 
-file_put_contents($log , $config['datetime'] . " - $ID - $sClass - $ret \n", FILE_APPEND);
