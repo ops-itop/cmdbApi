@@ -7,26 +7,6 @@
  * Mail: i@annhe.net
  * Created Time: 2017-05-24 13:10:27
  **/
-require dirname(__FILE__).'/../etc/config.php';
-
-$ID = getenv("ID");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
-
-$data = json_decode($iTopAPI->coreGet("Ticket", $ID), true);
-
-if($data['code'] != 0)
-{
-	$ret = $data['message'];
-	$sClass = "Ticket";
-	writeLog($ret);
-	die();
-}
-
-$Ticket = reset($data['objects']);
-$sClass = $Ticket['fields']['finalclass'];
-$data = json_decode($iTopAPI->coreGet($sClass, $ID), true);
-
-$ret = null;
 
 // 写日志
 function writeLog($ret)
@@ -47,7 +27,9 @@ function writeLog($ret)
 function CreateObj($oClass, $Ticket)
 {
 	global $iTopAPI;
-	if($oClass == "Server")
+	global $sClass;
+	global $type;
+	if($oClass == "Server" || $sClass != "UserRequest" || $type != "new")
 	{
 		return;
 	}
@@ -70,6 +52,12 @@ function CreateObj($oClass, $Ticket)
 			$fields[$k] = $v;
 		}
 	}
+	// 如果是申请app上线的工单，app联系人设置为工单申请人
+	if($oClass == "ApplicationSolution")
+	{
+		$fields['contact_list_custom'] = array(array("contact_id"=>$Ticket['caller_id']));
+	}
+	
 	$oNew = json_decode($iTopAPI->coreCreate($oClass, $fields), true);
 	$tFields = array();
 	if($oNew['code'] == 0)
@@ -82,15 +70,74 @@ function CreateObj($oClass, $Ticket)
 	}
 
 	$upTk = $iTopAPI->coreUpdate("UserRequest", $Ticket['key'], $tFields);
-	return($upTk);
+	return($upTk['code'] . ":" . $tFields['public_log']);
 }
 
 /**
- * 创建事件之后，根据事件关联的APP自动更新事件的配置项、联系人
- * 并且自动分配事件给该联系人
+ * 更新对象
+ * 资源申请工单审批通过，对象状态设置为在线，审批失败，设置为废弃
  */
-function UpdateIncident()
-{}
+function UpdateObjStatus($Ticket)
+{
+	global $sClass;
+	global $oClass;
+	global $user_data;
+	global $iTopAPI;
+	$status = $Ticket['fields']['status'];
+	$oCIs = $Ticket['fields']['functionalcis_list'];
+	
+	// 只有在工单状态变为new, closed或者rejected时才更新对象状态
+	if($sClass != "UserRequest" || !in_array($status, array("new", "closed", "rejected")))
+	{
+		return;
+	}
+	$ret = array("code"=>100, "message"=>"empty FunctionalCI");
+	foreach($oCIs as $key => $value)
+	{
+		// 如果是计算方式添加的配置项或者和模板关联类无关的对象，或者不是用户输入名称的对象，忽略
+		if($value['impact_code'] == "computed" || $value['functionalci_id_finalclass_recall'] != $oClass || $value['functionalci_name'] != $user_data['name'])
+		{
+			continue;
+		}
+		$functionalci_id = $value['functionalci_id'];
+		$data = json_decode($iTopAPI->coreGet($oClass, $functionalci_id, "status"), true);
+		if($data['code'] != 0 || !$data['objects'])
+		{
+			continue;
+		}
+		$obj = reset($data['objects']);
+		$objStatus = $obj['fields']['status'];
+		switch($objStatus. "." . $status)
+		{
+			case "implementation.closed":
+				$ret = json_decode($iTopAPI->coreUpdate($oClass, $functionalci_id, array("status"=>"production")),true);break;
+			case "implementation.rejected":
+				$ret = json_decode($iTopAPI->coreUpdate($oClass, $functionalci_id, array("status"=>"obsolete")),true);break;
+			case "obsolete.new":
+				$ret = json_decode($iTopAPI->coreUpdate($oClass, $functionalci_id, array("status"=>"implementation")),true);break;
+			default:break;
+		}
+	}
+	return($ret['message']);
+}
+
+
+/**
+ * 创建事件之后，根据事件关联的APP自动更新事件的联系人
+ */
+function UpdateIncident($Ticket, $plan)
+{
+	global $iTopAPI;
+	global $sClass;
+	$contacts_list = array();
+	foreach($plan as $k => $v)
+	{
+		$contacts_list[] = array('contact_id'=>$v);
+	}
+	$iTopAPI->coreUpdate($sClass, $Ticket['key'], array(
+		"contacts_list" => $contacts_list
+	));
+}
 
 /**
  * 获取事件工单指派信息
@@ -153,7 +200,7 @@ function GetIncidentAssignInfo($Ticket, $allstaff)
  * 指派工单
  * 根据配置文件自动指派工单（排班）
  */
-function AssignUserRequest($Ticket)
+function AssignTicket($Ticket)
 {
 	global $iTopAPI;
 	global $config;
@@ -168,6 +215,7 @@ function AssignUserRequest($Ticket)
 	{
 		$plan = GetIncidentAssignInfo($Ticket, $allstaff);
 		$team_id = $allstaff;
+		UpdateIncident($Ticket, $plan);
 	}
 	
 	// get oAssign
@@ -208,31 +256,53 @@ function AssignUserRequest($Ticket)
 }
 
 
-// 更新对象
-function UpdateObj()
-{}
+require dirname(__FILE__).'/../etc/config.php';
 
+$ID = getenv("ID");
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
 
-if($data['objects'])
+$data = json_decode($iTopAPI->coreGet("Ticket", $ID), true);
+
+if($data['code'] != 0)
 {
-	/** 
-	 * 这里需要取service_details, 2.3.3的rest api不支持AttributeCustom类型的Fields，需要打补丁
-	 * 补丁在 ../itop_restapi_2.3.3.patch
-	 */
-	$Ticket = reset($data['objects']);
-	$user_data = $Ticket['fields']['service_details']['user_data'];
-	$template_id = $Ticket['fields']['service_details']['template_id'];
-	$template = json_decode($iTopAPI->coreGet('RequestTemplate', $template_id), true);
-	$template = reset($template['objects']);
-	$oClass = $template['fields']['relatedclass'];
-	$type = $template['fields']['type'];
-
-	switch($type) {
-		case "new": $ret = CreateObj($oClass, $Ticket); $ret .= AssignUserRequest($Ticket);break;
-		case "incident": $ret = AssignUserRequest($Ticket);break;
-		default:break;
-	}
-
+	$ret = $data['message'];
+	$sClass = "Ticket";
 	writeLog($ret);
+	die();
 }
 
+$Ticket = reset($data['objects']);
+$sClass = $Ticket['fields']['finalclass'];
+$data = json_decode($iTopAPI->coreGet($sClass, $ID), true);
+
+$ret = null;
+
+if($data['code'] != 0 || !$data['objects'])
+{
+	$ret = $data['message'];
+	writeLog($ret);
+	die();
+}
+
+/** 
+ * 这里需要取service_details, 2.3.3的rest api不支持AttributeCustom类型的Fields，需要打补丁
+ * 补丁在 ../itop_restapi_2.3.3.patch
+ */
+$Ticket = reset($data['objects']);
+$user_data = $Ticket['fields']['service_details']['user_data'];
+$template_id = $Ticket['fields']['service_details']['template_id'];
+$template = json_decode($iTopAPI->coreGet('RequestTemplate', $template_id), true);
+$template = reset($template['objects']);
+$oClass = $template['fields']['relatedclass'];
+$type = $template['fields']['type'];
+$ticketStatus = $Ticket['fields']['status'];
+
+switch($type . "." . $ticketStatus) {
+	case "new.new": $ret = CreateObj($oClass, $Ticket); $ret .= AssignTicket($Ticket);$ret .= UpdateObjStatus($Ticket);break;
+	case "new.closed": $ret = UpdateObjStatus($Ticket);break;
+	case "new.rejected": $ret = UpdateObjStatus($Ticket);break;
+	case "incident.new": $ret = AssignTicket($Ticket);break;
+	default:break;
+}
+
+writeLog($ret);
