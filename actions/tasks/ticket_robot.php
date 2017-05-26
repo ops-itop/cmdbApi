@@ -29,6 +29,7 @@ function CreateObj($oClass, $Ticket)
 	global $iTopAPI;
 	global $sClass;
 	global $type;
+	global $user_data;
 	if($oClass == "Server" || $sClass != "UserRequest" || $type != "new")
 	{
 		return;
@@ -38,7 +39,6 @@ function CreateObj($oClass, $Ticket)
 	$fields['description'] = $Ticket['fields']['description'];
 	$fields['status'] = "implementation";
 
-	$user_data = $Ticket['fields']['service_details']['user_data'];
 	foreach($user_data as $k => $v)
 	{
 		if(preg_match("/^tips/", $k))
@@ -55,7 +55,7 @@ function CreateObj($oClass, $Ticket)
 	// 如果是申请app上线的工单，app联系人设置为工单申请人
 	if($oClass == "ApplicationSolution")
 	{
-		$fields['contact_list_custom'] = array(array("contact_id"=>$Ticket['caller_id']));
+		$fields['contact_list_custom'] = array(array("contact_id"=>$Ticket['fields']['caller_id']));
 	}
 	
 	$oNew = json_decode($iTopAPI->coreCreate($oClass, $fields), true);
@@ -69,10 +69,89 @@ function CreateObj($oClass, $Ticket)
 		$tFields['public_log'] = "资源创建异常: " . $oNew['message'];
 	}
 
-	$upTk = $iTopAPI->coreUpdate("UserRequest", $Ticket['key'], $tFields);
+	$upTk = json_decode($iTopAPI->coreUpdate("UserRequest", $Ticket['key'], $tFields), true);
 	return($upTk['code'] . ":" . $tFields['public_log']);
 }
 
+/** 
+ * 更新Change类型的工单及配置项
+ */
+function UpdateChangeTicket($Ticket, $update=false)
+{
+	global $type;
+	global $sClass;
+	global $user_data;
+	global $oClass;
+	global $iTopAPI;
+	if($type != "change" || $sClass != "UserRequest")
+	{
+		return;
+	}
+	
+	$fields = array();
+	foreach($user_data as $k => $v)
+	{
+		// 变更类型工单 name 一般是一个下拉列表，值为变更CI的ID
+		if(preg_match("/^tips|name/", $k))
+		{
+			continue;
+		}elseif($k == "applicationsolution_list")
+		{
+			$fields[$k] = array(array("applicationsolution_id"=>$v));
+		}else
+		{
+			$fields[$k] = $v;
+		}		
+	}
+	
+	// 审核未通过的工单应该保持CI不变，只有正常完成的工单才更新
+	// new[set ci implementation] -> assign[] -> resolve[] -> closed[set ci production; update changed fields]
+	// new[set ci implementation] -> assign[] -> rejected[set ci production] -> closed[]
+	// new[set ci implementation] -> assign[] -> rejected[set ci production] -> new[set ci implementation] -> assign[] -> ...
+	$Id = $user_data['name'];
+	$obj = json_decode($iTopAPI->coreGet($oClass, $Id, 'status'), true);
+	$obj = reset($obj['objects']);
+	$objStatus = $obj['fields']['status'];
+	$status = $Ticket['fields']['status'];
+	
+	switch($status . "." . $objStatus)
+	{
+		case "new.production": 
+			$ret = json_decode($iTopAPI->coreUpdate($oClass, $Id, array("status"=>"implementation")),true);break;
+		case "closed.implementation":
+			$fields['status'] = "production";
+			$ret = json_decode($iTopAPI->coreUpdate($oClass, $Id, $fields),true);break;
+		case "rejected.implementation":
+			$ret = json_decode($iTopAPI->coreUpdate($oClass, $Id, array("status"=>"production")),true);break;
+		default: $ret = array('code'=>100, 'message'=>'无需操作');break;
+	}
+	
+	$msg = array();
+	if($ret['code'] == 0)
+	{
+		$msg[] = "变更CI更新成功";
+	}else
+	{
+		$msg[] = "变更CI未更新: " . $ret['message'];
+	}
+	
+	// $update参数控制是否更新工单
+	if($update)
+	{
+		$ret = json_decode($iTopAPI->coreUpdate($sClass, $Ticket['key'], array("functionalcis_list" => array(array("functionalci_id"=>$user_data['name'])))), true);
+		if($ret['code'] != 0)
+		{
+			$msg[] = $ret['message'];
+		}else
+		{
+			$msg[] = "变更工单链接CI成功";
+		}
+	}
+	$msg = implode("  --  ", $msg);
+	$iTopAPI->coreUpdate($sClass, $Ticket['key'], array("public_log"=>$msg));
+	return($msg);
+}
+ 
 /**
  * 更新对象
  * 资源申请工单审批通过，对象状态设置为在线，审批失败，设置为废弃
@@ -115,10 +194,15 @@ function UpdateObjStatus($Ticket)
 				$ret = json_decode($iTopAPI->coreUpdate($oClass, $functionalci_id, array("status"=>"obsolete")),true);break;
 			case "obsolete.new":
 				$ret = json_decode($iTopAPI->coreUpdate($oClass, $functionalci_id, array("status"=>"implementation")),true);break;
-			default:break;
+			default: $ret = array('code'=>100, 'message'=>'UpdateObjStatus:无需操作');break;
 		}
 	}
-	return($ret['message']);
+	$msg = $ret['message'];
+	if($ret['code'] == 0)
+	{
+		$msg = "UpdateObjStatus:关联对象状态更新成功";
+	}
+	return($msg);
 }
 
 
@@ -297,12 +381,16 @@ $oClass = $template['fields']['relatedclass'];
 $type = $template['fields']['type'];
 $ticketStatus = $Ticket['fields']['status'];
 
+$ret = array();
 switch($type . "." . $ticketStatus) {
-	case "new.new": $ret = CreateObj($oClass, $Ticket); $ret .= AssignTicket($Ticket);$ret .= UpdateObjStatus($Ticket);break;
-	case "new.closed": $ret = UpdateObjStatus($Ticket);break;
-	case "new.rejected": $ret = UpdateObjStatus($Ticket);break;
-	case "incident.new": $ret = AssignTicket($Ticket);break;
-	default:break;
+	case "new.new": $ret[] = CreateObj($oClass, $Ticket); $ret[] = AssignTicket($Ticket);$ret[] = UpdateObjStatus($Ticket);break;
+	case "new.closed": $ret[] = UpdateObjStatus($Ticket);break;
+	case "new.rejected": $ret[] = UpdateObjStatus($Ticket);break;
+	case "incident.new": $ret[] = AssignTicket($Ticket);break;
+	case "change.new": $ret[] = AssignTicket($Ticket); $ret[] = UpdateChangeTicket($Ticket, true);break;
+	case "change.closed": $ret[] = UpdateChangeTicket($Ticket);break;
+	case "change.rejected": $ret[] = UpdateChangeTicket($Ticket);break;
+	default: $ret[] = "Nothing to do"; break;
 }
 
-writeLog($ret);
+writeLog(implode(" - ", $ret));
