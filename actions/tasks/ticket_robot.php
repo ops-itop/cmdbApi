@@ -375,11 +375,19 @@ if($data['code'] != 0 || !$data['objects'])
 $Ticket = reset($data['objects']);
 $user_data = $Ticket['fields']['service_details']['user_data'];
 $template_id = $Ticket['fields']['service_details']['template_id'];
-$template = json_decode($iTopAPI->coreGet('RequestTemplate', $template_id), true);
-$template = reset($template['objects']);
-$oClass = $template['fields']['relatedclass'];
-$type = $template['fields']['type'];
 $ticketStatus = $Ticket['fields']['status'];
+
+// template_id为null时，接口不报错，而是返回全部模板，因此这里需要判断
+if($template_id)
+{
+	$template = json_decode($iTopAPI->coreGet('RequestTemplate', $template_id), true);
+	$template = reset($template['objects']);
+	$oClass = $template['fields']['relatedclass'];
+	$type = $template['fields']['type'];
+}else
+{
+	$type = "no_template";
+}
 
 $ret = array();
 switch($type . "." . $ticketStatus) {
@@ -390,6 +398,7 @@ switch($type . "." . $ticketStatus) {
 	case "change.new": $ret[] = AssignTicket($Ticket); $ret[] = UpdateChangeTicket($Ticket, true);break;
 	case "change.closed": $ret[] = UpdateChangeTicket($Ticket);break;
 	case "change.rejected": $ret[] = UpdateChangeTicket($Ticket);break;
+	case "no_template.new": $ret[] = AssignTicket($Ticket);break;
 	default: $ret[] = "Nothing to do"; break;
 }
 
