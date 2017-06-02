@@ -11,3 +11,16 @@
  			else
  			{
  				$value = $oAttDef->GetForJSON($oObject->Get($sAttCode));
+--- application/applicationextension.inc.php	2017-06-01 19:24:54.292262420 +0800
++++ /tmpaaaaaaa/applicationextension.inc.php	2017-06-01 19:36:55.882773607 +0800
+@@ -944,6 +944,10 @@
+ 				}
+ 				$value = DBObjectSet::FromArray($sLnkClass, $aLinks);
+ 			}
++			elseif($oAttDef instanceof AttributeCustomFields)
++			{
++				$value = json_decode(json_encode($value), true);
++			}
+ 			else
+ 			{
+ 				$value = $oAttDef->FromJSONToValue($value);
