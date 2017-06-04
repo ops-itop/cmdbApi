@@ -19,6 +19,330 @@ function writeLog($ret)
 }
 
 /**
+ * 检查persons是否在$allstaff团队里，如果不在，则添加进去
+ * 并生产plan
+ * @persons coreGet("Person") decode后的结果
+ * @allstaff config['ticket']['allstaff']的值
+ */
+function GetAssignPlan($persons, $allstaff)
+{
+	global $config;
+	global $iTopAPI;
+	$plan = array();
+	
+	$opsPlan = false;
+	// 没有联系人的时候分配给运维
+	if(!$persons['objects'])
+	{
+		$query = "SELECT Person WHERE id IN ('" . implode("','", $config['ticket']['plan']) . "')";
+		$persons = json_decode($iTopAPI->coreGet("Person", $query, "login,team_list"), true);
+		$opsPlan = true;
+	}
+	// 检查person是否在$allstaff团队里，如果不在，则添加进去
+	foreach($persons['objects'] as $k => $v)
+	{
+		$plan[] = $v['key'];
+		$allteam = array();
+		foreach($v['fields']['team_list'] as $id => $team)
+		{
+			$allteam[] = $team['team_id'];
+		}
+		if(!in_array($allstaff, $allteam))
+		{
+			$iTopAPI->coreCreate("lnkPersonToTeam", array(
+				"person_id"=>$v['key'],
+				"team_id"=>$allstaff
+			));
+		}
+	}
+	
+	// 如果使用运维值班表，则不需要排序
+	$opsPlan == false ? sort($plan) : $plan = $config['ticket']['plan'];
+	return($plan);
+}
+
+/**
+ * 获取服务器类工单的Assign plan
+ */
+function GetServerTicketAssignInfo($Ticket, $allstaff)
+{
+	global $iTopAPI;
+	$server_list = $Ticket['fields']['server_list'];
+	$server_id = array();
+	foreach($server_list as $k => $v)
+	{
+		$server_id[] = $v['server_id'];
+	}
+	$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id IN ('" . implode("','", $server_id) . "') AND l.contact_id_finalclass_recall='Person'";
+	$persons = json_decode($iTopAPI->coreGet("Person", $query, "login, team_list"),true);
+	$plan = array();
+	$plan = GetAssignPlan($persons, $allstaff);
+	return($plan);
+}
+
+/**
+ * 生成工单链接
+ */
+function TicketLink($id, $ref, $html=true, $class="UserRequest")
+{
+	global $config;
+	$lnk = $config['itop']['url'] . "/pages/exec.php/object/edit/" . $class . "/" . $id . "?exec_module=itop-portal&exec_page=index.php";
+	if($html)
+	{
+		$lnk = '<a href="' . $lnk . '" _target="_blank">' . $ref . '</a>';
+	}
+	return($lnk);
+}
+
+/**
+ * 服务器按管理员分组
+ */
+function  ServerGroup($Ticket)
+{
+	global $iTopAPI;
+	$server_list = $Ticket['fields']['server_list'];
+	$server_id = array();
+	foreach($server_list as $k => $v)
+	{
+		$server_id[] = $v['server_id'];
+	}
+	$query = "SELECT Server WHERE id IN ('" . implode("','", $server_id) . "')";
+	$server_obj = json_decode($iTopAPI->coreGet("Server", $query, "contacts_list,hostname"), true);
+	
+	// 按联系人分组机器，拆分工单
+	$group_pre = array();
+	$group = array();
+	foreach($server_obj['objects'] as $k => $v)
+	{
+		$contact_id = array();
+		foreach($v['fields']['contacts_list'] as $key => $value)
+		{
+			$contact_id[] = $value['contact_id'];
+		}
+		sort($contact_id);
+		$contact_id_str = implode("_", $contact_id);
+		if(!$contact_id_str)
+		{
+			$contact_id_str = 0;  // 为0说明没有明确的管理员，那么默认归属运维
+		}
+		$item = array("server_id"=>$v['key'], "contacts"=>$contact_id_str, "contact_list" => $contact_id, "server_hostname" => $v['fields']['hostname']);
+		$group_pre[] = $item;
+		$group[$contact_id_str] = array();
+	}
+	
+	foreach($group_pre as $k => $v)
+	{
+		$group[$v['contacts']][] = array("server_id"=>$v['server_id'], "contact_list"=>$v['contact_list'], "server_hostname"=>$v['server_hostname']);
+	}
+	
+	$split = false;
+	if(count($group) > 1)
+	{
+		$split = true;
+	}
+	return(array("group"=>$group, "split"=>$split));
+}
+
+/** 
+ * 账号申请，服务器管理员变更类工单，审核人为服务器管理员，因此需要按机器管理员拆分工单
+ * 为防止触发器循环执行，规定拆分工单需要有parent ticket，有parent ticket的工单直接退出
+ */
+function ServerTicketPre($Ticket)
+{
+	global $oClass;
+	global $iTopAPI;
+	global $ID;
+	
+	$valid_class = array("lnkUserToServer", "lnkContactToFunctionalCI");
+	
+	// 非服务器类工单退出
+	if(!in_array($oClass, $valid_class))
+	{
+		return("非服务器类工单退出");
+	}
+
+	$ret = array();
+	$pre = ServerGroup($Ticket);
+	$group = $pre['group'];
+	$split = $pre['split'];
+	
+	if($split)
+	{
+		$succ = false;
+		$service_details = $Ticket['fields']['service_details'];
+		
+		// 拆分工单
+		foreach($group as $k => $v)
+		{
+			$server_list = array();
+			$functionalcis_list = array();
+			$aHostname = array();
+			foreach($v as $key => $value)
+			{
+				$server_list[] = array("server_id"=>$value['server_id']);
+				$functionalcis_list[] = array("functionalci_id"=>$value['server_id']);
+				$aHostname[] = $value["server_hostname"];
+			}
+			$sHostname = implode("\n", $aHostname);
+			$service_details['user_data']['request_template_ip_textarea'] = $sHostname;
+			$service_details['extradata_id'] = 0;
+			$data = array("caller_id"=>$Ticket['fields']['caller_id'],
+						"origin" => $Ticket['fields']['origin'],
+						"org_id" => $Ticket['fields']['org_id'],
+						"server_list" => $server_list,
+						"functionalcis_list" => $functionalcis_list,
+						"service_id" => $Ticket['fields']['service_id'],
+						"service_details" => $service_details,
+						"servicesubcategory_id" => $Ticket['fields']['servicesubcategory_id'],
+						"description" => $Ticket['fields']['description'],
+						"public_log" => "父工单: " . TicketLink($Ticket['key'], $Ticket['fields']['ref']),
+						"title" => $Ticket['fields']['ref'] . "拆分工单 - " . $Ticket['fields']['title'],
+			);
+			
+			$r = json_decode($iTopAPI->coreCreate("UserRequest", $data), true);
+			if($r['code'] == 0)
+			{
+				$oTicket = reset($r['objects']);
+				$ret[] = "拆分工单创建成功:" .  TicketLink($oTicket['key'], $oTicket['fields']['ref']);
+				$succ=true;
+			}else
+			{
+				$ret[] = "拆分工单创建失败:" . $r['message'];
+				$succ=false;
+			}
+		}
+		if($succ)
+		{
+			$ret[] = AssignTicket($Ticket, true, false);
+			$r = json_decode($iTopAPI->coreApply_stimulus("UserRequest",$ID, array(
+				"solution"=>"工单需要多个审批者，已拆分，此工单关闭",
+			),'ev_resolve'),true);
+			$r['code'] == 0 ? $ret[] = "父工单关闭成功" : $ret[] = "父工单关闭失败: " . $r['message'];
+		}
+	}else
+	{
+		// 直接指派该工单
+		$ret[] = AssignTicket($Ticket, false, false);
+	}
+	$ret_str = implode("<br>", $ret);
+	$iTopAPI->coreUpdate("UserRequest", $ID, array("public_log" => $ret_str));
+	return(implode(" - ", $ret));
+}
+
+/**
+ * 创建lnkUserToServer(账号)
+ */
+function lnkUserToServer($Ticket, $servers)
+{
+	global $iTopAPI;
+	global $user_data;
+	$user_data['sudo'] == "需要" ? $sudo = "yes" : $sudo = "no";
+	$user_data['expiration'] == "永久账号" ? $expiration = "1970-01-01 08:00:00" : $expiration = "";
+	$query = "SELECT User WHERE contactid = '" . $Ticket['fields']['caller_id'] . "'";
+	$ret = json_decode($iTopAPI->coreGet("User", $query), true);
+	if($ret['code'] != 0)
+	{
+		return("获取User失败: " . $ret['message']);
+	}
+	
+	$user = reset($ret['objects']);
+	$user_id = $user['key'];
+	
+	$ret = array();
+	foreach($servers as $k => $v)
+	{
+		$param = array("user_id"=>$user_id,
+			"server_id"=>$v['server_id'],
+			"status"=>"enabled",
+			"expiration"=>$expiration,
+			"sudo"=>$sudo,
+		);
+		$data = json_decode($iTopAPI->coreUpdate("lnkUserToServer", "SELECT lnkUserToServer WHERE user_id = $user_id AND server_id = " . $v['server_id'], $param), true);
+		if($data['code'] != 0)
+		{
+			$data = json_decode($iTopAPI->coreCreate("lnkUserToServer", $param), true);
+		}
+		if($data['code'] == 0)
+		{
+			$ret[] = "lnkUserToServer创建成功: " . $v['server_hostname'];
+		}
+		else
+		{
+			$ret[] = "创建失败: " . $data['message'] . " - " . $v['server_hostname'];
+		}
+	}
+	return(implode("<br>", $ret));
+}
+
+/**
+ * 创建lnkContactToFunctionalCI(服务器联系人)
+ */
+function lnkPersonToServer($Ticket, $servers)
+{
+	global $iTopAPI;
+	global $user_data;
+	
+	$type = $user_data['type'];
+	$cis_list = reset(json_decode($iTopAPI->coreGet("Person", $Ticket['fields']['caller_id'], "cis_list"), true)['objects'])['fields']['cis_list'];
+	foreach($servers as $k => $v)
+	{
+		$friendlyname = $v['server_id']. " " . $Ticket['fields']['caller_id'];
+		if($type == "新增")
+		{
+			$cis_list[] = array("functionalci_id"=>$v['server_id'], "contact_id"=>$Ticket['fields']['caller_id']);
+		}
+		else
+		{
+			foreach($cis_list as $key => $value)
+			{
+				if($value['friendlyname'] == $friendlyname)
+				{
+					unset($cis_list[$key]);
+				}
+			}
+		}
+	}
+	$data = json_decode($iTopAPI->coreUpdate("Person", $Ticket['fields']['caller_id'], array("cis_list"=>$cis_list)), true);
+	if($data['code'] == 0)
+	{
+		return("服务器管理员修改成功");
+	}else
+	{
+		return("服务器管理员修改失败： " . $data['message']);
+	}
+}
+
+/**
+ * 创建服务器类申请对象
+ */
+function CreateServerLnk($Ticket)
+{
+	global $iTopAPI;
+	global $oClass;
+	$pre = ServerGroup($Ticket);
+	if($pre['split'])
+	{
+		return("拆分工单父工单不创建对象");
+	}
+	if($Ticket['fields']['status'] != "resolved")
+	{
+		return("非resolved状态无需操作");
+	}
+	
+	$servers = reset($pre['group']);
+	
+	$ret = "";
+	switch($oClass)
+	{
+		case "lnkUserToServer": $ret = lnkUserToServer($Ticket, $servers);break;
+		case "lnkContactToFunctionalCI": $ret = lnkPersonToServer($Ticket, $servers);break;
+		default: $ret = "非服务器类工单退出";
+	}
+	$iTopAPI->coreUpdate("UserRequest", $Ticket['key'], array("public_log"=>$ret));
+	return($ret);
+}
+
+/**
  * 资源申请工单创建资源对象
  * 要求：request template中Fields必须在对应类中存在，比如 name对应name，location对应location
  * 允许存在tips开头的Fields，该函数忽略tips开头的Fields
@@ -241,6 +565,7 @@ function GetIncidentAssignInfo($Ticket, $allstaff)
 	}
 	if($appId)
 	{
+		/*
 		$app = json_decode($iTopAPI->coreGet("ApplicationSolution", $appId, "contact_list_custom"), true);
 		$contacts = reset($app['objects'])['fields']['contact_list_custom'];
 		$personIds = array();
@@ -251,31 +576,11 @@ function GetIncidentAssignInfo($Ticket, $allstaff)
 				$personIds[] = $v['contact_id'];
 			}
 		}
-		
 		$query = "SELECT Person WHERE id IN (" . implode("','", $personIds) . ")";
+		*/
+		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_id='" . $appId . "' AND l.contact_id_finalclass_recall='Person'";
 		$persons = json_decode($iTopAPI->coreGet("Person", $query, "login,team_list"), true);
-		
-		if($persons['objects'])
-		{
-			// 检查person是否在$allstaff团队里，如果不在，则添加进去
-			foreach($persons['objects'] as $k => $v)
-			{
-				$plan[] = $v['key'];
-				$allteam = array();
-				foreach($v['fields']['team_list'] as $id => $team)
-				{
-					$allteam[] = $team['team_id'];
-				}
-				if(!in_array($allstaff, $allteam))
-				{
-					$iTopAPI->coreCreate("lnkPersonToTeam", array(
-						"person_id"=>$v['key'],
-						"team_id"=>$allstaff
-					));
-				}
-			}
-			sort($plan);
-		}
+		$plan = GetAssignPlan($persons, $allstaff);
 	}
 	return($plan);
 }
@@ -283,23 +588,37 @@ function GetIncidentAssignInfo($Ticket, $allstaff)
 /**
  * 指派工单
  * 根据配置文件自动指派工单（排班）
+ * @ops 是否为运维名下工单
  */
-function AssignTicket($Ticket)
+function AssignTicket($Ticket, $ops=false, $updateLog=true)
 {
 	global $iTopAPI;
 	global $config;
 	global $sClass;
+	global $type;
+	global $ticketStatus;
 	
+	if($ticketStatus != "new")
+	{
+		return "无需指派";
+	}
 	$servicesubcategory = $Ticket['fields']['servicesubcategory_name'];
 	extract($config['ticket']);
 	$team_id = $opsteam; // 默认分配给运维团队
 	
 	// 如果是事件工单，取关联app的联系人，按字典排序作为$plan，并使用allstaff团队
-	if($sClass== "Incident")
+	if($sClass== "Incident" && !$ops)
 	{
 		$plan = GetIncidentAssignInfo($Ticket, $allstaff);
 		$team_id = $allstaff;
 		UpdateIncident($Ticket, $plan);
+	}
+	
+	// 服务器类，子工单正常指派，父工单特殊处理
+	if($type == "server" && $ticketStatus == "new" && $sClass == "UserRequest" && !$ops)
+	{
+		$plan = GetServerTicketAssignInfo($Ticket, $allstaff);
+		$team_id = $allstaff;
 	}
 	
 	// get oAssign
@@ -332,10 +651,14 @@ function AssignTicket($Ticket)
 	{
 		$msg = "自动指派失败：agent_id 或者 team_id 异常";
 	}
-
-	$iTopAPI->coreUpdate($sClass, $Ticket['key'], array(
-		"public_log" => $msg
-	));
+	
+	// 是否更新public_log
+	if($updateLog)
+	{
+		$iTopAPI->coreUpdate($sClass, $Ticket['key'], array(
+			"public_log" => $msg
+		));
+	}
 	return($msg);
 }
 
@@ -398,8 +721,10 @@ switch($type . "." . $ticketStatus) {
 	case "change.new": $ret[] = AssignTicket($Ticket); $ret[] = UpdateChangeTicket($Ticket, true);break;
 	case "change.closed": $ret[] = UpdateChangeTicket($Ticket);break;
 	case "change.rejected": $ret[] = UpdateChangeTicket($Ticket);break;
+	case "server.new": $ret[] = ServerTicketPre($Ticket);break;
+	case "server.resolved": $ret[] = CreateServerLnk($Ticket);break;
 	case "no_template.new": $ret[] = AssignTicket($Ticket);break;
-	default: $ret[] = "Nothing to do"; break;
+	default: $ret[] = "Nothing to do";
 }
 
 writeLog(implode(" - ", $ret));
