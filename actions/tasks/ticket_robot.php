@@ -668,10 +668,10 @@ require dirname(__FILE__).'/../etc/config.php';
 $ID = getenv("ID");
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
 
-global $times; // 递归次数
-$times = 0;
+$times = 0; // 递归次数
 function GetData($ID)
 {
+	global $times;
 	global $iTopAPI;
 	global $config;
 	$data = json_decode($iTopAPI->coreGet("Ticket", $ID), true);
@@ -681,11 +681,12 @@ function GetData($ID)
 		$ret = "times:" . $times . " " . $data['message'];
 		$sClass = "Ticket";
 		writeLog($ret);
-		GetData($ID);
 		if($times > 2) // 最多重试三次
 		{
 			die();
 		}
+		$data = GetData($ID);
+		$times += 1;
 	}
 	return($data);
 }
