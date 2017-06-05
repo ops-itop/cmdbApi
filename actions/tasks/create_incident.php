@@ -2,15 +2,23 @@
 <?php
 
 require dirname(__FILE__).'/../etc/config.php';
+//die($iTopAPI->coreGet("UserRequest", 1605));
+$service_details = reset(json_decode($iTopAPI->coreGet("UserRequest", 1537, "service_details"), true)['objects'])['fields']['service_details'];
+$service_details['extradata_id'] = 0;
+$service_details['user_data']['sudo'] = "需要";
+$service_details['user_data']['request_template_ip_textarea'] = "10.135.28.97";
 $fields = array(
-	"title" => "测试api提交Incident",
-	"description" => "测试API提交Incident",
-	"org_id" => 2,
-	"caller_id" => 1,
-	"functionalcis_list" => array(array("functionalci_name"=>"cmdb", "functionalci_id_finalclass_recall"=>"ApplicationSolution")),
+	"title" => "测试api提交userrequest",
+	"description" => "测试API提交UserRequest",
+	"org_id" => 5,
+	"caller_id" => 2,
+	"origin" => "portal",
+	"server_list" => array(array("server_id"=>813)),
+	"service_id" => 10,
+	"servicesubcategory_id" => 31,
+	"service_details" => $service_details,
 );
-#$data = $iTopAPI->coreCreate("Incident", $fields);
+$data = $iTopAPI->coreCreate("UserRequest", $fields);
 
-$data = $iTopAPI->coreGet("RequestTemplate", NULL);
 print_r($data);
 
