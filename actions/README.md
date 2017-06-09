@@ -76,3 +76,65 @@ echo "$ds  $THIS_NAME - $THIS_HOSTNAME" >> demo.log
 ### 2.3.3 rest api 补丁
 task/ticket_robot.php 需要 取service_details, 2.3.3的rest api不支持AttributeCustom类型的Fields，需要打补丁（itop_restapi_2.3.3.patch），复制补丁文件到iTop根目录，执行 patch -p0 < itop_restapi_2.3.3.patch
 
+## task对应触发器动作参考
+
+### 动作
+```
+名称,类别,名称,描述,状态,Path,Parameters
+ticket_robot,Script execution,ticket_robot,工单操作,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=ticket_robot.php ID=$this->id$
+update_accounts_cache-lnkContactToFunctionalCI,Script execution,update_accounts_cache-lnkContactToFunctionalCI,更新服务器账号缓存,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=update_accounts_cache.php ID=$this->functionalci_id$
+update_accounts_cache-lnkUserToServer,Script execution,update_accounts_cache-lnkUserToServer,更新服务器账号缓存,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=update_accounts_cache.php ID=$this->server_id$
+update_accounts_cache-Server,Script execution,update_accounts_cache-Server,更新服务器账号缓存,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=update_accounts_cache.php ID=$this->id$
+update_functionalci_contacts,Script execution,update_functionalci_contacts,更新域名，app，数据库等的contacts字段,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=update_functionalci_contacts.php  ID=$this->applicationsolution_id$
+update_server_contacts,Script execution,update_server_contacts,更新服务器联系人,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=update_server_contacts.php ID=$this->functionalci_id$
+```
+
+### update_functionalci_contacts
+```
+描述,类别,目标类,过滤器
+lnkApplicationSolutionToFunctionalCI 删除,触发器(对象删除时),lnkApplicationSolutionToFunctionalCI,SELECT lnkApplicationSolutionToFunctionalCI WHERE functionalci_id_finalclass_recall NOT IN ('ApplicationSolution', 'Server')
+lnkContactToApplicationSolution删除,触发器(对象删除时),lnkContactToApplicationSolution,SELECT lnkContactToApplicationSolution
+lnkApplicationSolutionToFunctionalCI创建,触发器 (对象创建时),lnkApplicationSolutionToFunctionalCI,SELECT lnkApplicationSolutionToFunctionalCI WHERE functionalci_id_finalclass_recall NOT IN ('ApplicationSolution', 'Server')
+lnkContactToApplicationSolution创建,触发器 (对象创建时),lnkContactToApplicationSolution,SELECT lnkContactToApplicationSolution
+```
+
+### update_server_contacts
+```
+描述,类别,目标类,过滤器
+服务器lnkContact创建,触发器 (对象创建时),lnkContactToFunctionalCI,SELECT lnkContactToFunctionalCI WHERE functionalci_id_finalclass_recall='Server'
+服务器lnkContact删除,触发器(对象删除时),lnkContactToFunctionalCI,SELECT lnkContactToFunctionalCI WHERE functionalci_id_finalclass_recall='Server'
+```
+
+### ticket_robot
+```
+描述,类别,目标类,过滤器
+新工单被创建,触发器 (对象创建时),Ticket,SELECT Ticket AS t WHERE t.finalclass IN ('UserRequest','Incident')
+
+描述,目标类,状态,类别,过滤器
+工单已关闭,Ticket,closed,触发器 (进入一个状态时),SELECT Ticket AS t WHERE t.finalclass IN ('UserRequest','Incident')
+工单已解决,Ticket,resolved,触发器 (进入一个状态时),SELECT Ticket AS t WHERE t.finalclass IN ('UserRequest','Incident')
+工单被驳回,Ticket,rejected,触发器 (进入一个状态时),SELECT Ticket AS t WHERE t.finalclass IN ('UserRequest','Incident')
+```
+
+### update_accounts_cache-lnkContactToFunctionalCI
+```
+描述,类别,目标类,过滤器
+服务器lnkContact删除,触发器(对象删除时),lnkContactToFunctionalCI,SELECT lnkContactToFunctionalCI WHERE functionalci_id_finalclass_recall='Server'
+服务器lnkContact创建,触发器 (对象创建时),lnkContactToFunctionalCI,SELECT lnkContactToFunctionalCI WHERE functionalci_id_finalclass_recall='Server'
+```
+
+### update_accounts_cache-lnkUserToServer
+```
+描述,类别,目标类,Tracked attributes,过滤器
+lnkUserToServer删除,触发器(对象删除时),lnkUserToServer,
+lnkUserToServer创建,触发器 (对象创建时),lnkUserToServer,
+
+描述,类别,目标类,Tracked attributes,过滤器
+lnkUserToServer更新,Trigger on object update,lnkUserToServer,status,
+```
+
+### update_accounts_cache-Server
+```
+描述,类别,目标类,Tracked attributes,过滤器
+服务器use_pam更新,Trigger on object update,Server,use_pam,
+```
