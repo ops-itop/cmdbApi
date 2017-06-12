@@ -23,7 +23,7 @@ if(isset($_GET['type']) and isset($_GET['value'])) {
 	}
 	$type = $_GET['type'];
 	$value = $_GET['value'];
-	$query = "SELECT $type AS t WHERE t.$key='$value'";
+	$query = "SELECT " . $config['map'][$type] . " AS t WHERE t.$key='$value'";
 	$data = $iTopAPI->coreGet("FunctionalCI", $query);
 	$data = json_decode($data, true);
 	if($data['objects'] != null){
