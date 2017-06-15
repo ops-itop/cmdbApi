@@ -1,0 +1,4 @@
+*.html
+*.log
+*.tpl
+create_incident.php
