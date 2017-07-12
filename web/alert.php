@@ -26,10 +26,10 @@ function getFunctionalCIId($type, $value)
 	global $config;
 	$class = $config['map'][$type];
 	$query = "SELECT ". $class . " WHERE name = '" . $value . "'";
-	$data = $iTopAPI->coreGet($class, $query);
-	$obj = json_decode($data, true)['objects'];
-	if($obj)
+	$data = json_decode($iTopAPI->coreGet($class, $query), true);
+	if(array_key_exists("objects", $data) && $data['objects'] != null)
 	{
+		$obj = $data['objects'];
 		return(reset($obj)['key']);
 	}else
 	{
