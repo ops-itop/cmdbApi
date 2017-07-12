@@ -48,7 +48,7 @@ function getAlertRule($functionalci_id)
 	{
 		foreach($obj as $k => $v)
 		{
-			$rule[$v['fields']['alerttype_name']] = array(
+			$rule[$v['fields']['alerttype_name']. "_".$v['fields']['method']] = array(
 				'method' => $v['fields']['method'],
 				'qoq_cycle' => $v['fields']['qoq_cycle'],
 				'threshold' => $v['fields']['threshold'],
