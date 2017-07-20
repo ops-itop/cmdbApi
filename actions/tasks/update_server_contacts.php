@@ -15,9 +15,17 @@ require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
 $TITLE = getenv("TITLE");
+$DEBUG = getenv("DEBUG");
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
 
 $oql = "SELECT Server AS f WHERE f.id = '" . $ID . "'";
+
+// 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等几秒
+if(!$DEBUG)
+{
+	sleep($config['update']['delay']);
+}
+
 $data = $iTopAPI->coreGet("Server", $oql, "contacts_list");
 $obj = json_decode($data, true)['objects'];
 if($obj)

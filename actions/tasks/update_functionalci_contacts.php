@@ -26,10 +26,10 @@ $output_fields = array("ApplicationSolution"=>"contact_list_custom"); // 顺便�
 $optional = array("filter"=>$filter,"hide_relations"=>$hide_relations,"depth"=>1, 
 	"direction"=>"up","output_fields"=>$output_fields);
 
-// 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等3s
+// 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等几秒
 if(!$DEBUG)
 {
-	sleep(3);
+	sleep($config['update']['delay']);
 }
 $data = json_decode($iTopAPI->extRelated("ApplicationSolution", $ID, "impacts", $optional), true);
 

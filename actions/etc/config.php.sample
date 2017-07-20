@@ -21,6 +21,7 @@ $config['tasklogdir'] = "logs";
 
 $config['datetime'] = date("Y-m-d H:i:s");
 $config['comment'] = "update from action-shell-exec";
+$config['update']['delay'] = 10; //更新联系人延迟时间，应对缓存带来的影响
 
 // 配置工单自动指派规则
 $config['ticket']['delay'] = 3; // 延时处理工单，应对缓存带来的影响
