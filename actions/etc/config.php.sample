@@ -21,3 +21,4 @@ $config['tasklogdir'] = "logs";
 
 $config['datetime'] = date("Y-m-d H:i:s");
 $config['comment'] = "update from action-shell-exec";
+$config['ticket']['delay'] = 3;
