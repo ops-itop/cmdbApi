@@ -63,11 +63,14 @@ if($data['code'] != 0 || !$data['objects'])
 $Ticket = reset($data['objects']);
 $ticketStatus = $Ticket['fields']['status'];
 
-print_r($Ticket);
-die();
+// $Ticket 保存了工单的所有信息
+// print_r($Ticket);
+//die();
+
 $ret = array();
 if($ticketStatus == "resolved") {
 	
+	// 任意操作
 }
 
 $ret = "times: " . $times . " " . implode(" - ", $ret);

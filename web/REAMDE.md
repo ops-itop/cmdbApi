@@ -1,20 +1,22 @@
-# accounts.php
+# api.php
 
 ## 用途
-账号管理接口，查询某个IP的账号列表
+iTop关闭或重开工单接口
 
 参数列表
 
-| 参数 | 说明 |
-| ---  | ---- |
-| ip   | IP地址 |
-| cache | 可选. false: 不适用cache; set: 更新缓存 |
+| 参数 | 说明 | 备注
+| ---  | ---- | ---- |
+| action   | close,reopen | |
+| user_satisfaction | 1,2,3,4 (1 => 非常满意, 2 => 满意, 3 => 不满意, 4 => 非常不满意) | action为close时需要此参数 |
+| user_comment | |action为close时需要此参数 |
 
-## 流程
-
-### 触发更新缓存
-账号管理工单审批完成，通过触发器调用 `cmdbApi/actions/tasks/update_account.php`, 此脚本中使用 `cache=set` 参数更新工单涉及IP的缓存
-
-### 定时更新缓存
-防止意外情况触发失败，使用 `cmdbApi/cron/update_accounts_cache.php` 来更新所有IP的缓存, 一秒一个，根据IP的数量决定执行频率
-
+## 返回值
+|code |含义|
+|---- |----- |
+| 0 | 成功 |
+| 100 | itop执行错误 |
+| 101 | 参数错误,缺少action |
+| 102 | 参数错误,缺少id, user_satisfaction或user_comment |
+| 103 | 参数错误,缺少id |
+| 110 | action类型错误 |
