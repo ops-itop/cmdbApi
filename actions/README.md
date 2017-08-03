@@ -73,7 +73,7 @@ echo "$ds  $THIS_NAME - $THIS_HOSTNAME" >> demo.log
 ticket_robot,Script execution,ticket_robot,工单操作,生产中,/wwwroot/cmdbApi/actions/demo.sh,SCRIPT_NAME=ticket_robot.php ID=$this->id$
 ```
 
-### ticket_robot
+### 触发器
 ```
 描述,目标类,状态,类别,过滤器
 工单已解决,Ticket,resolved,触发器 (进入一个状态时),SELECT Ticket AS t WHERE t.finalclass IN ('UserRequest','Incident')
