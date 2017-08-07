@@ -14,3 +14,4 @@ $config['rooturl'] = "http://cmdb.xx/api/";
 $config['itop']['url'] = "http://cmdb.xx";
 $config['itop']['user'] = "apiuser";
 $config['itop']['password'] = "k2odmlx;pwo98";
+$config['itop']['sk'] = "Mkso*kwk218Mlksk;pl.";

@@ -13,6 +13,7 @@ require '../composer/vendor/autoload.php';
 define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
+define('SK', $config['api']['sk']);
 
 $err = array(
 	"0" => "ok",
@@ -20,8 +21,20 @@ $err = array(
 	"102" => "missing params:id, user_satisfaction or user_comment",
 	"103" => "missing params:id",
 	"110" => "action error:reopen or close",
-	"120" => "itop api error"
+	"120" => "itop api error",
+	"130" => "missing params sign or sign error",
 );
+
+// 校验签名
+function checkSign($action, $params, $sign) {
+	if(!isset($params['id'])) die(errMsg("103"));
+	$_sign = sha1(md5($action . $params['id'] . SK));
+	if($_sign == $sign){
+		return True;
+	}
+	return False;
+}
+
 function errMsg($code) {
 	global $err;
 	$msg = array("code" => $code, "message" => $err[$code]);
@@ -66,8 +79,15 @@ function reopenTicket($params) {
 if(!isset($_GET['action'])) {
 	die(errMsg("101"));
 } 
+if(!isset($_GET['sign'])) {
+	die(errMsg("130"));
+}
 
 $action = $_GET['action'];
+$sign = $_GET['sign'];
+if(!checkSign($action, $_GET, $sign)) {
+	die(errMsg("130"));
+}
 
 switch($action) {
 	case "reopen":reopenTicket($_GET);break;
