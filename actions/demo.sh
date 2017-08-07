@@ -3,8 +3,6 @@
 ############################
 # Usage: 异步任务统一调度脚本
 # File Name: demo.sh
-# Author: annhe  
-# Mail: i@annhe.net
 # Created Time: 2017-04-21 16:08:38
 ############################
 

@@ -3,8 +3,6 @@
 /**
  * Usage: 工单机器人，用于指派工单，创建工单申请的资源，根据工单状态更新资源状态等
  * File Name: ticket_robot.php
- * Author: annhe  
- * Mail: i@annhe.net
  * Created Time: 2017-05-24 13:10:27
  **/
 

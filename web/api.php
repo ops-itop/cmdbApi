@@ -2,8 +2,6 @@
 /**
  * Usage:
  * File Name: api.php
- * Author: annhe  
- * Mail: i@annhe.net
  * Created Time: 2017-08-03 10:05:48
  **/
 

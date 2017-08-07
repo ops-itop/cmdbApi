@@ -2,8 +2,6 @@
 /**
  * Usage:
  * File Name: config.php
- * Author: annhe  
- * Mail: i@annhe.net
  * Created Time: 2016-06-24 11:39:32
  **/
 
@@ -14,4 +12,4 @@ $config['rooturl'] = "http://cmdb.xx/api/";
 $config['itop']['url'] = "http://cmdb.xx";
 $config['itop']['user'] = "apiuser";
 $config['itop']['password'] = "k2odmlx;pwo98";
-$config['itop']['sk'] = "Mkso*kwk218Mlksk;pl.";
+$config['api']['sk'] = "Mkso*kwk218Mlksk;pl.";
