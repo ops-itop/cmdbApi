@@ -48,8 +48,8 @@ function sendmail($sub, $content, $format="text")
 function getAllServer()
 {
 	global $iTopAPI;
-	$oql = "SELECT Server AS s WHERE s.status='production'";
-	$output_fields = "name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list";
+	$oql = "SELECT Server";
+	$output_fields = "status,name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
 	return $data['objects'];
@@ -113,7 +113,7 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 }
 
 // 监控审计
-function audit_monitor($data)
+function audit_monitor($data, $zbxServers)
 {
 	$audit_ret = array(
 		"monitor" => array(),
@@ -124,8 +124,6 @@ function audit_monitor($data)
 		return;
 	}
 
-	// 先一次性取出zabbix中所有的host，并组装成key为sn的数组
-	$zbxServers = zabbixAllHostGet();
 	$zbxAll = array();
 	foreach($zbxServers as $server)
 	{
@@ -135,6 +133,9 @@ function audit_monitor($data)
 
 	foreach($data as $key => $server)
 	{
+		if($server['fields']['status'] != "production") {
+			continue;
+		}
 		$sn = $server['fields']['name'];
 		if(!array_key_exists($sn, $zbxAll))
 		{
@@ -160,18 +161,21 @@ function audit_monitor($data)
 	return $audit_ret;
 }
 
-// cmdb服务器缺失情况审计(已监控但是cmdb未录入)
-function audit_cmdb($cmdbdata)
+// cmdb服务器缺失情况审计(已监控但是cmdb未录入, 已加监控但是cmdb中机器状态是下线)
+function audit_cmdb($cmdbdata, $zbxServers)
 {
 	global $iTopAPI;
-	$ret = array();
-	$zbxServers = zabbixAllHostGet();
+	$ret = array("missing"=>array(), "obsolete"=>array());
 
 	// 降维处理,方便下面的循环体直接用in_array，减少循环次数
 	$cmdbServers = array();
+	$obsoleteServers = array();
 	foreach($cmdbdata as $server)
 	{
 		array_push($cmdbServers, $server['fields']['name']);
+		if($server['fields']['status'] == 'obsolete') {
+			array_push($obsoleteServers, $server['fields']['name']);
+		}
 	}
 
 	$i = 1;
@@ -187,7 +191,11 @@ function audit_cmdb($cmdbdata)
 
 		if(!in_array($sn, $cmdbServers))
 		{
-			$ret[$sn] = $hostname;
+			$ret["missing"][$sn] = $hostname;
+		}
+		if(in_array($sn, $obsoleteServers))
+		{
+			$ret["obsolete"][$sn] = $hostname;
 		}
 	}
 	return $ret;
@@ -196,18 +204,23 @@ function audit_cmdb($cmdbdata)
 function main()
 {
 	$cmdbServer = getAllServer();
-	$ret = audit_monitor($cmdbServer);
+	$zbxServers = zabbixAllHostGet();
+	$ret = audit_monitor($cmdbServer, $zbxServers);
 	$csvHelper = new CSV();
 	$csv_monitor = $csvHelper->arrayToCSV($ret['monitor']);
 	$sum = count($ret['monitor']);
 	$csv_updatecmdb = $csvHelper->arrayToCSV($ret['updatecmdb']);
-	$csv_auditcmdb = $csvHelper->arrayToCSV(audit_cmdb($cmdbServer));
+
+	$ret_cmdb = audit_cmdb($cmdbServer, $zbxServers);
+	$csv_auditcmdb = $csvHelper->arrayToCSV($ret_cmdb['missing']);
+	$csv_auditcmdb_obsolete = $csvHelper->arrayToCSV($ret_cmdb['obsolete']);
 	$content = "说明:\n1. 服务器唯一标识为SN(虚拟机使用UUID做为SN)\n";
 	$content = $content . "2. 未加监控服务器: 以CMDB为基准，找出SN在zabbix中不存在的服务器";
 	$content = $content . "\n3. CMDB信息更新情况: 以zabbix inventory信息为准，更新CMDB中服务器的主机名，CPU，型号等信息. 只显示更新失败以及主机名发生变化的服务器。需要人工关注\n";
 	$content = $content . "4. 未录入CMDB服务器: 以zabbix inventory为基准，找出SN在zabbix中存在但是CMDB中不存在的服务器，需要人工录入CMDB";
 	$content = $content . "\n\nCMDB信息更新情况:\n\n" . $csv_updatecmdb;
 	$content = $content . "\n\n未录入CMDB服务器:\n\n" . $csv_auditcmdb;
+	$content = $content . "\n\n未清监控的已下线服务器: \n\nSN,  内网IP\n" . $csv_auditcmdb_obsolete;
 	$content = $content . "\n\n未加监控服务器总数: $sum \n\nSN,  内网IP\n" . $csv_monitor;
 	print_r($content);
 
