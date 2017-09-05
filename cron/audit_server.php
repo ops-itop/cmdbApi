@@ -142,7 +142,7 @@ function audit_monitor($data, $zbxServers)
 		// 从命令行排除一些机器
 		foreach($exclude as $key => $val) {
 			if(array_key_exists($key, $server['fields'])) {
-				if(in_array($server['fields'][$key], $val)) continue;
+				if(in_array($server['fields'][$key], $val)) continue 2;
 			}
 		}
 
