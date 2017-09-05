@@ -49,7 +49,7 @@ function getAllServer()
 {
 	global $iTopAPI;
 	$oql = "SELECT Server";
-	$output_fields = "status,name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list";
+	$output_fields = "status,name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list,organization_name";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
 	return $data['objects'];
@@ -131,11 +131,21 @@ function audit_monitor($data, $zbxServers)
 		$zbxAll[$sn] = $server;
 	}
 
+	$exclude = excludeFilter();
+	
 	foreach($data as $key => $server)
 	{
 		if($server['fields']['status'] != "production") {
 			continue;
 		}
+		
+		// 从命令行排除一些机器
+		foreach($exclude as $key => $val) {
+			if(array_key_exists($key, $server['fields'])) {
+				if(in_array($server['fields'][$key], $val)) continue;
+			}
+		}
+
 		$sn = $server['fields']['name'];
 		if(!array_key_exists($sn, $zbxAll))
 		{
@@ -231,6 +241,23 @@ function main()
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
 	sendmail($subject,$content);
 	//die(json_encode($ret));
+}
+
+function excludeFilter()
+{
+	$params = getopt('', array('exclude:'));
+	$exclude = '';
+	if(array_key_exists('exclude', $params)) {
+		$exclude = $params['exclude'];
+	}
+	$exclude_arr = array();
+	$exclude = explode('#', $exclude);
+	foreach($exclude as $val) {
+		$t = explode('=', $val);
+		if(count($t) != 2) continue;
+		$exclude_arr[$t[0]] = explode(',', $t[1]);
+	}
+	return($exclude_arr);
 }
 
 main();
