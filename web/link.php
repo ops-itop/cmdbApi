@@ -127,6 +127,12 @@ foreach($_GET as $k => $v)
 }
 $hide = implode(",", $hide_arr);
 
+// 简单的方法隐藏除app外的所有类型
+if(isset($_GET['hide']) and $_GET['hide'] == "all") {
+	$hide = implode(",", array_keys($hides));
+}
+
+
 $url = $api . "?type=$type&value=$value&rankdir=LR&direction=both&hide=$hide&depth=20";
 print('<p><a href="' . $url . '" target="_blank">API链接</a></p>');
 $ch = curl_init();
