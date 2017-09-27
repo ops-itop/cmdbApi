@@ -72,6 +72,8 @@ body {
 	$hides = array("Url"=>"Url",
 		"BusinessProcess" => "业务线",
 		"Team" => "团队",
+		"Cluster" => "集群",
+		"Person" => "人员",
 		"Server" => "服务器",
 		"Rack" => "机柜",
 		"MongoDB" => "MongoDB",
