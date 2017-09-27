@@ -1,6 +1,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <link href="//cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" media="screen">
 <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
 <style type="text/css">
@@ -110,6 +111,7 @@ body {
 <div id="img">
 <?php
 require '../etc/config.php';
+require '../lib/core.function.php';
 $api = $config['rooturl'] . "public.php";
 
 if(!isset($_GET['type']) || !isset($_GET['name']))
@@ -137,12 +139,7 @@ if(isset($_GET['hide']) and $_GET['hide'] == "all") {
 
 $url = $api . "?type=$type&value=$value&rankdir=LR&direction=both&hide=$hide&depth=20";
 print('<p><a href="' . $url . '" target="_blank">API链接</a></p>');
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-curl_setopt($ch, CURLOPT_HEADER, 0);
-$output = curl_exec($ch);
-curl_close($ch);
+$output = curlGet($url);
 $ret = json_decode($output, true);
 $imgurl = $ret['imgurl'];
 if($ret['relations'])
