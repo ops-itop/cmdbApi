@@ -602,9 +602,13 @@ function AssignTicket($Ticket, $ops=false, $updateLog=true)
 	{
 		return "无需指派";
 	}
+	
 	$servicesubcategory = $Ticket['fields']['servicesubcategory_name'];
 	extract($config['ticket']);
-	$team_id = $opsteam; // 默认分配给运维团队
+	$org_id = $Ticket['fields']['org_id'];
+	$team_id = $opsteam[$org_id]; // 默认分配给当前组织的运维团队
+	$plan = $plan[$org_id];		// 使用当前组织的指派规则
+	$special = $special[$org_id];  // 使用当前组织的特殊指派规则
 	
 	// 如果是事件工单，取关联app的联系人，按字典排序作为$plan，并使用allstaff团队
 	if($sClass== "Incident" && !$ops)
