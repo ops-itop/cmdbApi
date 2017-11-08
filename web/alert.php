@@ -26,18 +26,25 @@ function getFunctionalCIId($type, $value)
 	global $config;
 	if(!array_key_exists($type, $config['map']))
 	{
-		return(false);
+		return false;
 	}
 	$class = $config['map'][$type];
 	$query = "SELECT ". $class . " WHERE name = '" . $value . "'";
+
+	if($class == 'PhysicalIP') {
+		$query = "SELECT Server AS s JOIN ". $class . " AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress='" . $value . "'";
+		$class = "Server";
+	}
 	$data = json_decode($iTopAPI->coreGet($class, $query), true);
 	if(array_key_exists("objects", $data) && $data['objects'] != null)
 	{
-		$obj = $data['objects'];
-		return(reset($obj)['key']);
+		$obj = reset($data['objects']);
+		$key = $obj['key'];
+		$org_id = $obj['fields']['org_id'];
+		return(array('key'=>$key, 'org_id'=>$org_id));
 	}else
 	{
-		return(false);
+		return false;
 	}
 }
 
@@ -65,12 +72,12 @@ function getAlertRule($functionalci_id)
 
 // 使用缓存需要配合iTop触发器及action-shell-exec， lnkFuncationalCIToAlertRule
 // 对象创建或更新删除时需要触发一个脚本去更新缓存
-function setCache($key, $rule)
+function setCache($key, $result)
 {
 	$m = new Memcached();
 	$m->addServer(CACHE_HOST, CACHE_PORT);
 	$expiration = time() + (int)CACHE_EXPIRATION;
-	return($m->set($key, $rule, $expiration));
+	return($m->set($key, $result, $expiration));
 }
 
 function getCache($key)
@@ -82,9 +89,18 @@ function getCache($key)
 
 function main($type, $value)
 {
-	$id = getFunctionalCIId($type, $value);
-	$rule = json_encode(getAlertRule($id));
-	return($rule);
+	$ciinfo = getFunctionalCIId($type, $value);
+	if(!$ciinfo) {
+		$result = array('org_id'=>null, 'rules'=>array());
+		return(json_encode($result));
+	}
+
+	$id = $ciinfo['key'];
+	$org_id = $ciinfo['org_id'];
+	$rules = getAlertRule($id);
+
+	$result = array('org_id'=>$org_id, 'rules'=>$rules);
+	return(json_encode($result));
 }
 
 if(isset($_GET['type']) && isset($_GET['value'])) {
@@ -94,25 +110,25 @@ if(isset($_GET['type']) && isset($_GET['value'])) {
 	// 设置缓存
 	if(isset($_GET['cache']) && $_GET['cache'] == "set")
 	{
-		$rule = main($type, $value);
-		die(setCache($key, $rule));
+		$result = main($type, $value);
+		die(setCache($key, $result));
 	}
 	if(isset($_GET['cache']) && $_GET['cache'] == "false")
 	{
-		$rule = main($type, $value);
-		die($rule);
+		$result = main($type, $value);
+		die($result);
 	}else
 	{
 		// 首先获取缓存内容
-		$rule = getCache($key);
-		if(!$rule)
+		$result = getCache($key);
+		if(!$result)
 		{
-			$rule = main($type, $value);
-			setCache($key, $rule);
+			$result = main($type, $value);
+			setCache($key, $result);
 		}
-		die($rule);
+		die($result);
 	}
 }else
 {
-	die(json_encode(array()));
+	die(json_encode(array('org_id'=>null, "rules"=>array())));
 }
