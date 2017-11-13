@@ -116,6 +116,7 @@ if(isset($_GET['type']) && isset($_GET['value'])) {
 	if(isset($_GET['cache']) && $_GET['cache'] == "false")
 	{
 		$result = main($type, $value);
+		setCache($key, $result);
 		die($result);
 	}else
 	{
