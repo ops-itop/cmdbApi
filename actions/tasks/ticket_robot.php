@@ -24,7 +24,7 @@ function writeLog($ret)
  * @persons coreGet("Person") decode后的结果
  * @allstaff config['ticket']['allstaff']的值
  */
-function GetAssignPlan($persons, $allstaff)
+function GetAssignPlan($persons, $allstaff, $org_id)
 {
 	global $config;
 	global $iTopAPI;
@@ -34,7 +34,7 @@ function GetAssignPlan($persons, $allstaff)
 	// 没有联系人的时候分配给运维
 	if(!$persons['objects'])
 	{
-		$query = "SELECT Person WHERE id IN ('" . implode("','", $config['ticket']['plan']) . "')";
+		$query = "SELECT Person WHERE id IN ('" . implode("','", $config['ticket']['plan'][$org_id]) . "')";
 		$persons = json_decode($iTopAPI->coreGet("Person", $query, "login,team_list"), true);
 		$opsPlan = true;
 	}
@@ -57,7 +57,7 @@ function GetAssignPlan($persons, $allstaff)
 	}
 	
 	// 如果使用运维值班表，则不需要排序
-	$opsPlan == false ? sort($plan) : $plan = $config['ticket']['plan'];
+	$opsPlan == false ? sort($plan) : $plan = $config['ticket']['plan'][$org_id];
 	return($plan);
 }
 
@@ -76,7 +76,7 @@ function GetServerTicketAssignInfo($Ticket, $allstaff)
 	$query = "SELECT Person AS p JOIN lnkContactToFunctionalCI AS l ON l.contact_id=p.id WHERE l.functionalci_id IN ('" . implode("','", $server_id) . "') AND l.contact_id_finalclass_recall='Person'";
 	$persons = json_decode($iTopAPI->coreGet("Person", $query, "login, team_list"),true);
 	$plan = array();
-	$plan = GetAssignPlan($persons, $allstaff);
+	$plan = GetAssignPlan($persons, $allstaff, $Ticket['fields']['org_id']);
 	return($plan);
 }
 
@@ -580,7 +580,7 @@ function GetIncidentAssignInfo($Ticket, $allstaff)
 		*/
 		$query = "SELECT Person AS p JOIN lnkContactToApplicationSolution AS l ON l.contact_id=p.id WHERE l.applicationsolution_id='" . $appId . "' AND l.contact_id_finalclass_recall='Person'";
 		$persons = json_decode($iTopAPI->coreGet("Person", $query, "login,team_list"), true);
-		$plan = GetAssignPlan($persons, $allstaff);
+		$plan = GetAssignPlan($persons, $allstaff, $Ticket['fields']['org_id']);
 	}
 	return($plan);
 }
