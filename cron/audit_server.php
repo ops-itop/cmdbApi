@@ -61,7 +61,7 @@ function zabbixHostGet($name)
 	global $zbxAPI;
 	$param = array(
 		"output" => array("host","inventory"),
-		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes"),
+		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os"),
 		"searchInventory" => array("asset_tag" => $name)
 	);
 	$data = $zbxAPI->hostGet($param);
@@ -78,13 +78,16 @@ function zabbixAllHostGet()
 function updateAssetInfo($cmdbdata, $zbxdata)
 {
 	global $iTopAPI;
+	$os = explode(" ", $zbxdata['inventory']['os']);
 	$cmdbServer = array(
 		'name' => $cmdbdata['fields']['name'],
 		'hostname' => $cmdbdata['fields']['hostname'],
 		'brand_name' => $cmdbdata['fields']['brand_name'],
 		'model_name' => $cmdbdata['fields']['model_name'],
 		'cpu' => $cmdbdata['fields']['cpu'],
-		'ram' => $cmdbdata['fields']['ram']
+		'ram' => $cmdbdata['fields']['ram'],
+		'osfamily_name' => $cmdbdata['fields']['osfamily_name'],
+		'osversion_name' => $cmdbdata['fields']['osversion_name'],
 	);
 
 	$zbxServer = array(
@@ -94,6 +97,8 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'model_name' => $zbxdata['inventory']['model'],
 		'cpu' => $zbxdata['inventory']['tag'],
 		'ram' => $zbxdata['inventory']['notes'],
+		'osfamily_name' => reset($os),
+		'osversion_name' => end($os),
 	);
 	
 	$key = array("name" => $cmdbServer['name']);
@@ -101,6 +106,8 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 	{
 		$zbxServer['brand_id'] = array("name" => $zbxServer['brand_name']);
 		$zbxServer['model_id'] = array("name" => $zbxServer['model_name'], "brand_name" => $zbxServer['brand_name']);
+		$zbxServer['osfamily_id'] = array("name" => $zbxServer['osfamily_name']);
+		$zbxServer['osversion_id'] = array("name" => $zbxServer['osversion_name'], "osfamily_name" => $zbxServer['osfamily_name']);
 		$ret = $iTopAPI->coreUpdate("Server", $key, $zbxServer);
 		$ret = json_decode($ret, true)['message'];
 		if($zbxServer['hostname'] != $cmdbServer['hostname'])
