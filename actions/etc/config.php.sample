@@ -15,7 +15,7 @@ define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
-$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
+$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.3');
 
 $config['tasklogdir'] = "logs";
 
@@ -29,3 +29,9 @@ $config['ticket']['plan'] = array("1"=>array("1"), "2"=>array("3"));  // 使用i
 $config['ticket']['opsteam'] = array("1"=>15, "2"=>"16");		// 使用team id, 组织=>id
 $config['ticket']['allstaff'] = 16; 	// 全员team id
 $config['ticket']['special'] = array("1"=>array("RDS申请"=>"1"));  // 使用服务名称=>用户id，组织=>规则
+
+// Kubernetes
+$config['kubernetes']['master'] = "https://xxx.com";
+$config['kubernetes']['ca_cert'] = "/tmp/ca.pem";
+$config['kubernetes']['client_cert'] = "/tmp/client_cert.pem";
+$config['kubernetes']['client_key'] = "/tmp/client_key.pem";
