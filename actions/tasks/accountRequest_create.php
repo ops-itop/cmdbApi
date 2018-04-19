@@ -11,7 +11,8 @@
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 $oql = "SELECT UserRequest AS t WHERE t.ref = '" . $ID . "'";
 $data = $iTopAPI->coreGet("UserRequest", $oql, "functionalcis_list, caller_id, description");

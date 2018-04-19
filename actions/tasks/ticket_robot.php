@@ -670,7 +670,8 @@ function AssignTicket($Ticket, $ops=false, $updateLog=true)
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 $times = 0; // 递归次数
 function GetData($ID)
