@@ -260,6 +260,13 @@ class iTopSecret {
 		return $secrets;
 	}
 
+	function deallog($r) {
+		if($r['kind'] == "Secret") {
+			return "update Secret " . $r['metadata']['name'] . " successful";
+		}
+		return $r;
+	}
+
 	function run() {
 		global $k8sClient;
 		$secrets = $this->Secret();
@@ -268,9 +275,11 @@ class iTopSecret {
 			$secret = new Secret($v);
 			$k8sClient->setNamespace($k);
 			if($k8sClient->secrets()->exists($secret->getMetadata('name'))) {
-				$result[] = $k8sClient->secrets()->update($secret);
+				$r = $k8sClient->secrets()->update($secret);
+				$result[] = $this->deallog($r);
 			} else {
-				$result[] = $k8sClient->secrets()->create($secret);
+				$r = $k8sClient->secrets()->create($secret);
+				$result[] = $this->deallog($r);
 			}
 		}
 		return json_encode($result);
