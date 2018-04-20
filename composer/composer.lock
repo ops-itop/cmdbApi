@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "59044e41a2f78045a722d61242ee289e",
+    "content-hash": "822aac1873e40adb21466ed2f2b661f7",
     "packages": [
         {
             "name": "confirm-it-solutions/php-zabbix-api",
@@ -498,16 +498,16 @@
         },
         {
             "name": "maclof/kubernetes-client",
-            "version": "0.9.0",
+            "version": "dev-master",
             "source": {
                 "type": "git",
                 "url": "https://github.com/maclof/kubernetes-client.git",
-                "reference": "a11f340dd71e6505a594cc97547274d416f4353e"
+                "reference": "0e34e6b069a195fe40b8803094e27a67c945e855"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://files.phpcomposer.com/files/maclof/kubernetes-client/a11f340dd71e6505a594cc97547274d416f4353e.zip",
-                "reference": "a11f340dd71e6505a594cc97547274d416f4353e",
+                "url": "https://files.phpcomposer.com/files/maclof/kubernetes-client/0e34e6b069a195fe40b8803094e27a67c945e855.zip",
+                "reference": "0e34e6b069a195fe40b8803094e27a67c945e855",
                 "shasum": ""
             },
             "require": {
@@ -545,7 +545,7 @@
                 "guzzlehttp",
                 "kubernetes"
             ],
-            "time": "2018-04-13T14:57:46+00:00"
+            "time": "2018-04-19T21:30:35+00:00"
         },
         {
             "name": "nesbot/carbon",
@@ -933,7 +933,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "maclof/kubernetes-client": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": [],

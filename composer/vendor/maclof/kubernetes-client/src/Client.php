@@ -145,7 +145,7 @@ class Client
 		'events'                 => 'Repositories\EventRepository',
 		'configMaps'             => 'Repositories\ConfigMapRepository',
 		'endpoints'              => 'Repositories\EndpointRepository',
-	  'persistentVolume'       => 'Repositories\PersistentVolumeRepository',
+		'persistentVolume'       => 'Repositories\PersistentVolumeRepository',
 		'persistentVolumeClaims' => 'Repositories\PersistentVolumeClaimRepository',
 		'namespaces'             => 'Repositories\NamespaceRepository',
 
@@ -160,8 +160,8 @@ class Client
 		'deployments'            => 'Repositories\DeploymentRepository',
 		'ingresses'              => 'Repositories\IngressRepository',
 
-        // networking.k8s.io/v1
-        'networkPolicies'        => 'Repositories\NetworkPolicyRepository',
+		// networking.k8s.io/v1
+		'networkPolicies'        => 'Repositories\NetworkPolicyRepository',
 	];
 
 	/**
@@ -312,7 +312,7 @@ class Client
 	 * @param  boolean $namespace
 	 * @param  string  $apiVersion
 	 * @return array|string
-	 * @throws \Exception
+	 * @throws \Maclof\Kubernetes\Exceptions\BadRequestException
 	 */
 	public function sendRequest($method, $uri, $query = [], $body = [], $namespace = true, $apiVersion = null)
 	{
@@ -331,15 +331,15 @@ class Client
 		}
 
 		if ($method === 'PATCH') {
-		    $requestOptions['headers'] = ['Content-Type' => 'application/strategic-merge-patch+json'];
-        }
+			$requestOptions['headers'] = ['Content-Type' => 'application/strategic-merge-patch+json'];
+		}
 
 		if (!$this->isUsingGuzzle6()) {
 			try {
 				$request = $this->guzzleClient->createRequest($method, $requestUri, $requestOptions);
 				$response = $this->guzzleClient->send($request);
 			} catch (ClientException $e) {
-				throw new BadRequestException($e->getMessage());
+				throw new BadRequestException($e->getMessage(), 0, $e);
 			}
 
 			try {
@@ -349,15 +349,28 @@ class Client
 			}
 		}
 
-		$response = $this->guzzleClient->request($method, $requestUri, $requestOptions);
+		try {
+			$response = $this->guzzleClient->request($method, $requestUri, $requestOptions);
 
-		$bodyResponse = (string) $response->getBody();
-		$jsonResponse = json_decode($bodyResponse, true);
+			$bodyResponse = (string) $response->getBody();
+			$jsonResponse = json_decode($bodyResponse, true);
 
-		return is_array($jsonResponse) ? $jsonResponse : $bodyResponse;
+			return is_array($jsonResponse) ? $jsonResponse : $bodyResponse;
+		} catch (ClientException $e) {
+			$fullMessage = (string) $e->getResponse()->getBody();
+			throw new BadRequestException($fullMessage, 0, $e);
+		}
 	}
 
-	public function __call($name, $args)
+	/**
+	 * Magic call method to grab a class instance.
+	 * 
+	 * @param  string $name
+	 * @param  array  $args
+	 * @return \stdClass
+	 * @throws \BadMethodCallException
+	 */
+	public function __call($name, array $args)
 	{
 		if (isset($this->classMap[$name])) {
 			$class = 'Maclof\Kubernetes\\' . $this->classMap[$name];

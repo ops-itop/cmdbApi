@@ -3,6 +3,6 @@
         "ec-europa/itopapi": "^0.5.2",
         "confirm-it-solutions/php-zabbix-api": "2.4.2",
         "influxdb/influxdb-php": "^1.14",
-        "maclof/kubernetes-client": "^0.9.0"
+        "maclof/kubernetes-client": "dev-master"
     }
 }
