@@ -11,10 +11,9 @@
 require dirname(__FILE__).'/../etc/config.php';
 use Maclof\Kubernetes\Client;
 use Maclof\Kubernetes\Models\Deployment;
-/*
+use Maclof\Kubernetes\Models\Service;
 use Maclof\Kubernetes\Models\Ingress;
 use Maclof\Kubernetes\Models\Secret;
- */
 
 $ID = getenv("ID");
 $script = explode("/", $argv[0]);
@@ -49,10 +48,11 @@ class iTopKubernetes {
 	}
 
 	private function _getenv() {
+		$env = [];
+		if(!$this->data['secret_id']) { return $env; }
 		$secret = new iTopSecret();
 		$secret->__init_by_id($this->data['secret_id']);
 		$data = $secret->Secret($this->data['k8snamespace_name']);
-		$env = [];
 		foreach($data['data'] as $k => $v) {
 			$env[] = [
 				'name' => $k,
@@ -181,6 +181,38 @@ class iTopKubernetes {
 			]
 		];
 	}
+
+	function run() {
+		global $k8sClient;
+		$this->Deployment();
+		$this->Service();
+		$this->Ingress();
+
+		$deployment = new Deployment($this->get('deployment'));
+		$service = new Service($this->get('service'));
+		$ingress = new Ingress($this->get('ingress'));
+		
+		$result = [];
+		if($k8sClient->deployments()->exists($deployment->getMetadata('name'))) {
+			$result = $k8sClient->deployments()->update($deployment);
+		} else {
+			$result = $k8sClient->deployments()->create($deployment);
+		}
+
+		if($k8sClient->services()->exists($service->getMetadata('name'))) {
+			$result = $k8sClient->services()->update($service);
+		} else {
+			$result = $k8sClient->services()->create($service);
+		}
+
+		if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
+			$result = $k8sClient->ingresses()->update($ingress);
+		} else {
+			$result = $k8sClient->ingresses()->create($ingress);
+		}
+
+		return json_encode($result);
+	}
 }
 
 class iTopSecret {
@@ -204,7 +236,7 @@ class iTopSecret {
 			$key = $item[0];
 			array_shift($item);
 			$value = implode(":", $item);
-			$secret_data[$key] = $value;
+			$secret_data[$key] = base64_encode($value);
 		}
 		$secrets = [];
 		foreach($this->data['deployment_list'] as $k => $v) {
@@ -219,6 +251,21 @@ class iTopSecret {
 		}
 		if($namespace) { return $secrets[$namespace]; }
 		return $secrets;
+	}
+
+	function run() {
+		global $k8sClient;
+		$secrets = $this->Secret();
+		$result = [];
+		foreach($secrets as $k => $v) {
+			$secret = new Secret($v);
+			if($k8sClient->secrets()->exists($secret->getMetadata('name'))) {
+				$result[] = $k8sClient->secrets()->update($secret);
+			} else {
+				$result = $k8sClient->secrets()->create($secret);
+			}
+		}
+		return json_encode($result);
 	}
 }
 
@@ -252,11 +299,25 @@ function GetData($ID, $sClass="Kubernetes") {
 }
 
 $data = GetData($ID);
-$itopK8s = new iTopKubernetes($data);
-$itopK8s->Deployment();
-$itopK8s->Service();
-$itopK8s->Ingress();
-print_r($itopK8s->get('ingress'));die();
+$finalclass = $data['finalclass'];
+
+if($finalclass == "Secret") {
+	$itopK8s = new iTopSecret();
+	$itopK8s->__init_by_data($data);
+}
+if($finalclass == "Ingress") {
+	$data = GetData($data['deployment_id'], 'Deployment');
+	$itopK8s = new iTopKubernetes($data);
+}
+if($finalclass == "Deployment") {
+	$itopK8s = new iTopKubernetes($data);
+}
+
+try {
+	$ret = $itopK8s->run();
+} catch(Exception $e) {
+	$ret = (string) $e->getMessage();
+}
 
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
 ?>
