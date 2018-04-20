@@ -236,7 +236,7 @@ class iTopSecret {
 	}
 
 	function Secret($namespace="") {
-		$secret_data_str = explode("\n", $this->data['data']);
+		$secret_data_str = explode("\n", preg_replace("/\r\n/m", "\n", $this->data['data']));
 		$secret_data = [];
 		foreach($secret_data_str as $k => $v) {
 			$item = explode(":", $v);
