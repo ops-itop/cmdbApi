@@ -16,6 +16,7 @@ use Maclof\Kubernetes\Models\Ingress;
 use Maclof\Kubernetes\Models\Secret;
 
 $ID = getenv("ID");
+$DEBUG = getenv("DEBUG");
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
@@ -71,8 +72,8 @@ class iTopKubernetes {
 		$ports = explode(",", $this->data['containerport']);
 		$port_list = ['deployment'=>[], 'service'=>[]];
 		foreach($ports as $k => $v) {
-			$port_list['deployment'][] = ['containerPort' => $v];	
-			$port_list['service'][] = ['port' => $v, 'targetPort'=>$v];	
+			$port_list['deployment'][] = ['containerPort' => (int) $v];	
+			$port_list['service'][] = ['port' => (int) $v, 'targetPort'=>(int) $v];
 		}
 		return $port_list[$objtype];
 	}
@@ -92,7 +93,7 @@ class iTopKubernetes {
 				'namespace' => $this->data['k8snamespace_name'],
 			],
 			'spec' => [
-				'replicas' => $this->data['replicas'],
+				'replicas' => (int) $this->data['replicas'],
 				'selector' => [
 					'matchLabels' => [
 						'app' => $this->app
@@ -143,10 +144,12 @@ class iTopKubernetes {
 			'host' => $this->domain,
 			'http' => [
 				'paths' => [
-					'path' => '/',
-					'backend' => [
-						'serviceName' => $this->app,
-						'servicePort' => $this->_getports('service')[0]['port']
+					[
+						'path' => '/',
+						'backend' => [
+							'serviceName' => $this->app,
+							'servicePort' => $this->_getports('service')[0]['port']
+						]
 					]
 				]
 			]
@@ -158,10 +161,12 @@ class iTopKubernetes {
 				'host' => $v['domain_name'],
 				'http' => [
 					'paths' => [
-						'path' => $v['location'],
-						'backend' => [
-							'serviceName' => $this->app,
-							'servicePort' => $v['serviceport']
+						[
+							'path' => $v['location'],
+							'backend' => [
+								'serviceName' => $this->app,
+								'servicePort' => (int) $v['serviceport']
+							]
 						]
 					]
 				]
@@ -184,6 +189,8 @@ class iTopKubernetes {
 
 	function run() {
 		global $k8sClient;
+		$k8sClient->setNamespace($this->data['k8snamespace_name']);
+
 		$this->Deployment();
 		$this->Service();
 		$this->Ingress();
@@ -194,21 +201,21 @@ class iTopKubernetes {
 		
 		$result = [];
 		if($k8sClient->deployments()->exists($deployment->getMetadata('name'))) {
-			$result = $k8sClient->deployments()->update($deployment);
+			$result[] = $k8sClient->deployments()->update($deployment);
 		} else {
-			$result = $k8sClient->deployments()->create($deployment);
+			$result[] = $k8sClient->deployments()->create($deployment);
 		}
 
 		if($k8sClient->services()->exists($service->getMetadata('name'))) {
-			$result = $k8sClient->services()->update($service);
+			$result[] = $k8sClient->services()->patch($service);
 		} else {
-			$result = $k8sClient->services()->create($service);
+			$result[] = $k8sClient->services()->create($service);
 		}
 
 		if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
-			$result = $k8sClient->ingresses()->update($ingress);
+			$result[] = $k8sClient->ingresses()->update($ingress);
 		} else {
-			$result = $k8sClient->ingresses()->create($ingress);
+			$result[] = $k8sClient->ingresses()->create($ingress);
 		}
 
 		return json_encode($result);
@@ -259,10 +266,11 @@ class iTopSecret {
 		$result = [];
 		foreach($secrets as $k => $v) {
 			$secret = new Secret($v);
+			$k8sClient->setNamespace($k);
 			if($k8sClient->secrets()->exists($secret->getMetadata('name'))) {
 				$result[] = $k8sClient->secrets()->update($secret);
 			} else {
-				$result = $k8sClient->secrets()->create($secret);
+				$result[] = $k8sClient->secrets()->create($secret);
 			}
 		}
 		return json_encode($result);
@@ -316,8 +324,9 @@ if($finalclass == "Deployment") {
 try {
 	$ret = $itopK8s->run();
 } catch(Exception $e) {
-	$ret = (string) $e->getMessage();
+	$ret = $e->getMessage();
 }
 
+if($DEBUG) { print_r($ret); }
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
 ?>
