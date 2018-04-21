@@ -15,7 +15,8 @@ $map = array_flip($config['map']);
 
 $ID = getenv("ID");
 $CLASS = getenv("CLASS");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 function SetCache($type, $value) {
 	global $config;

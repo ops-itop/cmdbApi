@@ -17,7 +17,8 @@ require dirname(__FILE__).'/../etc/config.php';
 $ID = getenv("ID");
 $TITLE = getenv("TITLE");
 $DEBUG = getenv("DEBUG");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 // 取app上游的一级关联，并排除Server和集群,App(上游app的联系人不受下游app影响),机柜等
 $hide_relations = array("Rack", "Server");

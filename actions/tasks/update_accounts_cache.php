@@ -13,7 +13,8 @@
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 function accountsSetCache($ID) {
 	global $config;

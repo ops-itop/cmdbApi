@@ -16,7 +16,8 @@ require dirname(__FILE__).'/../etc/config.php';
 $ID = getenv("ID");
 $TITLE = getenv("TITLE");
 $DEBUG = getenv("DEBUG");
-$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end(explode("/", $argv[0])) . ".log";
+$script = explode("/", $argv[0]);
+$log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 $oql = "SELECT Server AS f WHERE f.id = '" . $ID . "'";
 
