@@ -48,9 +48,16 @@ class iTopKubernetes {
 		return $this->$attr;
 	}
 
-	private function _getenv() {
-		$env = [];
-		if(!$this->data['secret_id']) { return $env; }
+	private function _mountsecret() {
+		$ret = ['volumeMounts' => [], 'volumes' => []];
+		if(!$this->data['secret_id']) { return $ret; }
+		
+		$name = $this->app . "-appconfig";
+		$ret['volumeMounts'][] = ['name'=>$name, 'mountPath'=>'/run/secrets/appconfig/', 'readOnly'=>true];
+		$ret['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>$this->data['secret_name']]];
+		return $ret;
+
+		/*
 		$secret = new iTopSecret();
 		$secret->__init_by_id($this->data['secret_id']);
 		$data = $secret->Secret($this->data['k8snamespace_name']);
@@ -66,6 +73,7 @@ class iTopKubernetes {
 			];
 		}
 		return $env;
+		 */
 	}
 
 	private function _getports($objtype) {
@@ -83,7 +91,55 @@ class iTopKubernetes {
 		$this->domain = end($domain);
 	}
 
+	private function _list2str($l, $key) {
+		$s = [];
+		foreach($l as $k => $v) {
+			$s[] = $v[$key];
+		}
+		return implode(",", $s);
+	}
+
+	private function _getenv() {
+		$env = [];
+		$envpod = [
+			'MY_NODE_NAME' => 'spec.nodeName',
+			'MY_POD_NAME' => 'metadata.name',
+			'MY_POD_NAMESPACE' => 'metadata.namespace',
+			'MY_POD_IP' => 'status.podIP',
+		];
+		$envstr = [
+			'APP_NAME' => $this->app,
+			'APP_DOMAIN' => $this->domain . "/," . $this->_list2str($this->data['ingress_list'], 'friendlyname'),
+			'APP_NAMESPACE' => $this->data['k8snamespace_name'],
+			'APP_ORG' => $this->data['organization_name'],
+			'APP_DESCRIPTION' => $this->data['description'],
+			'APP_ONLINEDATE' => $this->data['move2production'],
+			'APP_CONTACTS' => $this->_list2str($this->data['person_list'], 'person_name'),
+		];
+
+		foreach($envpod as $k => $v) {
+			$env[] = [
+				'name' => $k,
+				'valueFrom' => [
+					'fieldRef' => [
+						'fieldPath' => $v
+					]
+				]
+			];
+		}
+
+		foreach($envstr as $k => $v) {
+			$env[] = [
+				'name' => $k,
+				'value' => $v
+			];
+		}
+		return $env;
+	}
+
 	function Deployment() {
+		$mount = $this->_mountsecret();
+
 		$this->deployment = [
 			'metadata' => [
 				'name' => $this->app,
@@ -110,10 +166,12 @@ class iTopKubernetes {
 							[
 								'name' => $this->app,
 								'image' => $this->data['image'],
-								'env' => $this->_getenv($this->data['secret_id']),
+								'env' => $this->_getenv(),
 								'ports' => $this->_getports('deployment'),
+								'volumeMounts' => $mount['volumeMounts'],
 							]
 						],
+						'volumes' => $mount['volumes'],
 					],
 				]
 			]
