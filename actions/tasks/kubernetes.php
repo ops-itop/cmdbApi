@@ -2,6 +2,7 @@
 <?
 /**
  * Usage: 操作Kubernetes部署
+ * Require: 此程序用到了 guzzle ,要使用cURL，你必须已经有版本cURL >= 7.19.4，并且编译了OpenSSL 与 zlib
  * File Name: kubernetes.php
  * Author: annhe  
  * Mail: i@annhe.net
