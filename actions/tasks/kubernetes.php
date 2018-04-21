@@ -356,7 +356,7 @@ class iTopSecret {
 
 	function deallog($r, $k) {
 		if($r['kind'] == "Secret") {
-			return "update Secret $k." . $r['metadata']['name'] . " successful";
+			return ["kind"=>"Secret", "message"=>"update Secret $k." . $r['metadata']['name'] . " successful"];
 		}
 		return $r;
 	}
@@ -381,18 +381,39 @@ class iTopSecret {
 	}
 }
 
-function CreateEvent() {
-	$oql = "SELECT EventNotificationShellExec";
+function CreateEvent($log) {
+	global $iTopAPI;
+
+	$triggers = $iTopAPI->coreGet("TriggerOnObject", "SELECT TriggerOnObject WHERE target_class='Kubernetes'");
+	$trigger = json_decode($triggers, true)['objects'];
+	$trigger = reset($trigger);
+	$trigger_id = $trigger['key'];
+	$action_id = $trigger['fields']['action_list'][0]['action_id'];
+
+	global $ID;
+	$d = json_decode($log, true);
+	$description = [];
+	foreach($d as $k => $v) {
+		if($v['kind'] == "Status") {
+			$description[] = $v['message'];
+		} else {
+			$description[] = "Update " . $v['kind'] . " " . $v['metadata']['name'] . " successful";
+		}
+	}
+
+	$message = implode(",", $description);
+
 	$fields = array(
-		"message" => "Succ",
-		"date" => "2018-04-19 17:44:03",
+		"message" => $message,
+		"date" => date("Y-m-d H:i:s"),
 		"userinfo" => "kubernetes",
-		"trigger_id" => "100",
-		"action_id" => "100",
+		"trigger_id" => $trigger_id,
+		"action_id" => $action_id,
 		"object_id" => $ID,
-		"log" => "kubernetes"
+		"log" => $log
 	);
 	$data = $iTopAPI->coreCreate("EventNotificationShellExec", $fields);
+	return $data;
 }
 
 function GetData($ID, $sClass="Kubernetes") {
@@ -435,9 +456,14 @@ if($finalclass == "Deployment") {
 try {
 	$ret = $itopK8s->run($finalclass, $del);
 } catch(Exception $e) {
-	$ret = $e->getMessage();
+	$ret = [];
+	$ret[] = json_decode($e->getMessage());
+	$ret = json_encode($ret);
 }
+
+$itopEvent = CreateEvent($ret);
 
 if($DEBUG) { print_r($ret); }
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
+file_put_contents($log, $config['datetime'] . " - $ID - $itopEvent\n", FILE_APPEND);
 ?>
