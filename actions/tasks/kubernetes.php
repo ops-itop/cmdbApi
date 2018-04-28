@@ -18,6 +18,12 @@ use Maclof\Kubernetes\Models\Secret;
 
 $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
+$PULLPOLICY = getenv("PULLPOLICY");
+
+if(!$PULLPOLICY) {
+	$PULLPOLICY = "IfNotPresent";
+}
+
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
@@ -141,6 +147,7 @@ class iTopKubernetes {
 	}
 
 	function Deployment() {
+		global $PULLPOLICY;
 		$mount = $this->_mountsecret();
 
 		$this->deployment = [
@@ -172,6 +179,7 @@ class iTopKubernetes {
 								'env' => $this->_getenv(),
 								'ports' => $this->_getports('deployment'),
 								'volumeMounts' => $mount['volumeMounts'],
+								'imagePullPolicy' => $PULLPOLICY,
 							]
 						],
 						'volumes' => $mount['volumes'],
