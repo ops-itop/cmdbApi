@@ -19,9 +19,14 @@ use Maclof\Kubernetes\Models\Secret;
 $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
 $PULLPOLICY = getenv("PULLPOLICY");
-
+$AUTOUPDATE = getenv("AUTOUPDATE");
 if(!$PULLPOLICY) {
 	$PULLPOLICY = "IfNotPresent";
+}
+
+if($AUTOUPDATE) {
+	$AUTOUPDATE = (string)time();
+	$PULLPOLICY = "Always";
 }
 
 $script = explode("/", $argv[0]);
@@ -109,6 +114,7 @@ class iTopKubernetes {
 	}
 
 	private function _getenv() {
+		global $AUTOUPDATE;
 		$env = [];
 		$envpod = [
 			'MY_NODE_NAME' => 'spec.nodeName',
@@ -124,6 +130,7 @@ class iTopKubernetes {
 			'APP_DESCRIPTION' => $this->data['description'],
 			'APP_ONLINEDATE' => $this->data['move2production'],
 			'APP_CONTACTS' => $this->_list2str($this->data['person_list'], 'person_name'),
+			'AUTOUPDATE' =>  $AUTOUPDATE,
 		];
 
 		foreach($envpod as $k => $v) {
