@@ -86,3 +86,6 @@ $config['accounts']['debug'] = true;
 $config['memcached']['host'] = "localhost";
 $config['memcached']['port'] = 11211;
 $config['memcached']['expiration'] = 604800;
+
+// k8s
+$config['k8s']['dev'] = ['dev'];
