@@ -76,6 +76,7 @@ body {
 		"Cluster" => "集群",
 		"Person" => "人员",
 		"Server" => "服务器",
+		"Location" => "机房",
 		"Rack" => "机柜",
 		"MongoDB" => "MongoDB",
 		"RDS" => "RDS",
