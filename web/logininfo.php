@@ -27,10 +27,10 @@ define('ACCOUNTS_OK', "ACCOUNTS_OK");
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-define('HEAD',"\n##################### Server Info #####################\n");
-define('WARN',"WARNING!! 此机器未登记业务信息，有被下线风险");
+define('HEAD',"\n##################### Server Info ######################\n");
+define('WARN',"WARNING!!此机器未登记业务信息，有被下线风险");
 define('TIP',"如果您认为以上信息有误，请及时联系运维修正错误");
-define('TAIL',"\n#######################################################\n");
+define('TAIL',"\n########################################################\n");
 
 function red($text) {
 	return "\033[31m     $text \033[0m";
@@ -82,12 +82,16 @@ function getServerLoginInfo($ip)
 	$apps = [];
 	$contacts = [];
 	$location = "";
+	$status = "";
+	$map_status=array("production"=>"使用中","stock"=>"库存(此状态随时可能被下线)",
+		"obsolete"=>"废弃(此状态随时可能被重装或关机)","implementation"=>"上线中");
 	foreach($obj as $k => $v) {
 		if($v['class'] == "Person") {
 			$contacts[] = $v['fields']['friendlyname'];
 		}
 		if($v['class'] == "Server") {
 			$location = $v['fields']['location_name'];
+			$status = $map_status[$v['fields']['status']];
 		}
 		if($v['class'] == "ApplicationSolution") {
 			$apps[] = $v['fields']['name'];
@@ -103,6 +107,7 @@ function getServerLoginInfo($ip)
 	$info = HEAD;
 	$info .= red("业  务：" . $apps) . "\n";
 	$info .= skyblue("机  房：" . $location) . "\n";
+	$info .= skyblue("状  态：" . $status) . "\n";
 	$info .= white("联系人：" . $contacts) . "\n";
 	$info .= "\n" . yellow(TIP) . TAIL;
 	return($info);
