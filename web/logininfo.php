@@ -101,8 +101,8 @@ function getServerLoginInfo($ip)
 	}
 	$contacts = implode(",", $contacts);
 	$info = HEAD;
-	$info .= red("业务：" . $apps) . "\n";
-	$info .= skyblue("机房：" . $location) . "\n";
+	$info .= red("业  务：" . $apps) . "\n";
+	$info .= skyblue("机  房：" . $location) . "\n";
 	$info .= white("联系人：" . $contacts) . "\n";
 	$info .= "\n" . yellow(TIP) . TAIL;
 	return($info);
