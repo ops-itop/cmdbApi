@@ -27,118 +27,87 @@ define('ACCOUNTS_OK', "ACCOUNTS_OK");
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-HEAD="\n################################ Server Info ################################\n";
-TAIL="#############################################################################";
+define('HEAD',"\n################################ Server Info ################################\n");
+define('WARN',"WARNING!! 此机器未登记业务信息，有被下线风险");
+define('TIP',"如果您认为以上信息有误，请及时联系运维修正错误");
+define('TAIL',"\n#############################################################################\n");
 
 function red($text) {
-	return "\033[31m \t$text \033[0m";
+	return "\033[31m     $text \033[0m";
 }
 
 function skyblue($text) {
-	return "\033[36m \t$text \033[0m";
+	return "\033[36m     $text \033[0m";
 }
 
 function yellow($text) {
-	return "\033[33m \t$text \033[0m";
+	return "\033[33m     $text \033[0m";
 }
 
 function white($text) {
-	return "\033[37m \t$text \033[0m";
+	return "\033[37m     $text \033[0m";
 }
 
 function defaultInfo() {
-	$info = $HEAD . red("Warning! 此机器未登记业务信息，有被下线风险") . 
-		skyblue("\n请及时联系运维确认业务信息\n") . $TAIL;
+	$info = red(WARN);
+	return $info;
 }
 
 function errorInfo() {
-	$info = $HEAD . skyblue("获取业务信息失败") .  $TAIL;
+	$info = HEAD . skyblue("获取业务信息失败，请联系运维") .  TAIL;
+	return $info;
 }
 
 function getServerLoginInfo($ip)
 {
 	global $iTopAPI;
-	$query = "SELECT Server AS s JOIN PhysicalIP AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress = '$ip'";
-	$data = $iTopAPI->coreGet("Server", $query);
+	$query = "SELECT Server AS s JOIN PhysicalIP AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress = '$ip'";	
+
+	$optional = array(
+		'output_fields' => array("Server"=>"status,location_name","ApplicationSolution"=>"name"),
+		'show_relations' => ["Server","ApplicationSolution","Location","Person"],
+		'hide_relations' => [],
+		'direction' => 'both',
+		'filter' => ["Server","ApplicationSolution","Person"],
+		'depth' => 3,
+	);
+	$data = $iTopAPI->extRelated("Server", $query, "impacts", $optional);
+
 	$obj = json_decode($data, true)['objects'];
 	if(!$obj)
 	{
-		return(102);
+		return(errorInfo());
 	}
-	foreach($obj as $k => $v)
-	{
-		$server = $v;
-	}
-	if($server['fields']['use_pam'] != "yes")
-	{
-		return(101);
-	}
-
-	$contacts = array();
-	foreach($server['fields']['contacts_list'] as $k => $v)
-	{
-		$person = preg_replace("/@.*/","",$v['contact_email']);
-		if($person!="")
-		{
-			array_push($contacts, $person);
+	
+	$apps = [];
+	$contacts = [];
+	$location = "";
+	foreach($obj as $k => $v) {
+		if($v['class'] == "Person") {
+			$contacts[] = $v['fields']['friendlyname'];
+		}
+		if($v['class'] == "Server") {
+			$location = $v['fields']['location_name'];
+		}
+		if($v['class'] == "ApplicationSolution") {
+			$apps[] = $v['fields']['name'];
 		}
 	}
-	$ret = array("server_id" => $server['key'], "contacts" => $contacts);
-	return($ret);
+
+	if(!$apps) {
+		$apps = WARN;
+	} else {
+		$apps = implode(",", $apps);
+	}
+	$contacts = implode(",", $contacts);
+	$info = HEAD;
+	$info .= red("业务：" . $apps) . "\n";
+	$info .= skyblue("机房：" . $location) . "\n";
+	$info .= white("联系人：" . $contacts) . "\n";
+	$info .= "\n" . yellow(TIP) . TAIL;
+	return($info);
 }
 
-
-function getUser($ip, $serverinfo)
-{
-	global $iTopAPI;
-
-	$timestamp_0 = date('Y-m-d H:i:s', 86400);
-	$query = "SELECT lnkUserToServer AS l WHERE l.server_id=" . $serverinfo['server_id'] . 
-		" AND l.status='enabled'" . 
-		" AND l.user_status='enabled' AND (l.expiration > NOW() OR l.expiration <= '$timestamp_0')";
-	$data = $iTopAPI->coreGet("lnkUserToServer", $query, "user_name,user_status,sudo");
-	//die($data);
-	$lnks = json_decode($data, true)['objects'];
-
-	$ret = array("users"=>array(), "sudo"=>array());
-	if($lnks)
-	{
-		foreach($lnks as $k => $v)
-		{
-			array_push($ret['users'], $v['fields']['user_name']);
-			if($v['fields']['sudo'] == "yes")
-			{
-				array_push($ret['sudo'], $v['fields']['user_name']);
-			}	
-		}
-	}
-	$ret = array("users" => array_unique(array_merge($ret['users'], $serverinfo['contacts'])), 
-		"sudo" => array_unique(array_merge($ret['sudo'], $serverinfo['contacts'])));
-	$ret = implode("|", array(implode(",", $ret['users']), implode(",",$ret['sudo'])));
-	return($ret);
-}
-
-/*
- * 定义返回格式为:  状态#allowed users|sudo users
- * 状态包含: PAM_OFF ACCOUNTS_OK
- * allowed users及sudo users以逗号分隔
- */
-
-// 验证IP，只允许访问自己的数据, 
-// 如果使用代理，需要配置 proxy_set_header     X-Forwarded-For $proxy_add_x_forwarded_for;
-function checkIP($ip_para)
-{
-	$ip = getenv("HTTP_X_FORWARDED_FOR");
-	if(!$ip)
-	{
-		$ip = $_SERVER["REMOTE_ADDR"];
-	}
-	if($ip_para == $ip)
-	{
-		return(true);
-	}
-	return(false);
-}
 
 // 使用缓存需要配合iTop触发器及action-shell-exec， lnkContactToFunctionalCI对象创建或者工单
 // 审批通过时，需要触发一个脚本去更新缓存。对象删除暂时不能通过触发器，考虑每小时定时任务
@@ -159,41 +128,20 @@ function getCache($ip)
 	return($m->get($ip));
 }
 
-function main($ip)
-{
-	$serverinfo = getServerInfo($ip);
-	if($serverinfo == 101)
-	{
-		return(PAM_OFF . "#|");
-	}
-	if($serverinfo == 102)
-	{
-		return("NOT FOUND");
-	}
-
-	$users = getUser($ip, $serverinfo);
-	return(ACCOUNTS_OK . "#" . $users);
-}
-
 if(isset($_GET['ip'])) {
 	$ip = $_GET['ip'];
+	// 暂时不用缓存
+	die(getServerLoginInfo($ip));
 	// 设置缓存(无需校验IP)
 	if(isset($_GET['cache']) && $_GET['cache'] == "set")
 	{
-		$ret = main($ip);
+		$ret = getServerLoginInfo($ip);
 		die(setCache($ip, $ret));
-	}
-	if(!$config['accounts']['debug'])
-	{
-		if(!checkIP($ip))
-		{
-			die("Permission denied");
-		}
 	}
 
 	if(isset($_GET['cache']) && $_GET['cache'] == "false")
 	{
-		die(main($ip));
+		die(getServerLoginInfo($ip));
 	}else
 	{
 		// 首先获取缓存内容
@@ -207,6 +155,6 @@ if(isset($_GET['ip'])) {
 	}
 }else
 {
-	die("ERROR");
+	die(errorInfo());
 }
 
