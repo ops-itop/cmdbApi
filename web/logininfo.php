@@ -36,6 +36,10 @@ function red($text) {
 	return "\033[31m     $text \033[0m";
 }
 
+function blink($text) {
+	return "\033[5;33m     $text \033[0m";
+}
+
 function skyblue($text) {
 	return "\033[36m     $text \033[0m";
 }
@@ -46,11 +50,6 @@ function yellow($text) {
 
 function white($text) {
 	return "\033[37m     $text \033[0m";
-}
-
-function defaultInfo() {
-	$info = red(WARN);
-	return $info;
 }
 
 function errorInfo() {
@@ -99,13 +98,14 @@ function getServerLoginInfo($ip)
 	}
 
 	if(!$apps) {
-		$apps = WARN;
+		$apps = blink("业  务：" . WARN);
 	} else {
 		$apps = implode(",", $apps);
+		$apps = red("业  务：" . $apps);
 	}
 	$contacts = implode(",", $contacts);
 	$info = HEAD;
-	$info .= red("业  务：" . $apps) . "\n";
+	$info .= $apps . "\n";
 	$info .= skyblue("机  房：" . $location) . "\n";
 	$info .= skyblue("状  态：" . $status) . "\n";
 	$info .= white("联系人：" . $contacts) . "\n";
