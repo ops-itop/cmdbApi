@@ -27,10 +27,10 @@ define('ACCOUNTS_OK', "ACCOUNTS_OK");
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 
-define('HEAD',"\n################################ Server Info ################################\n");
+define('HEAD',"\n##################### Server Info #####################\n");
 define('WARN',"WARNING!! 此机器未登记业务信息，有被下线风险");
 define('TIP',"如果您认为以上信息有误，请及时联系运维修正错误");
-define('TAIL',"\n#############################################################################\n");
+define('TAIL',"\n#######################################################\n");
 
 function red($text) {
 	return "\033[31m     $text \033[0m";
