@@ -145,7 +145,7 @@ $ret = json_decode($output, true);
 $imgurl = $ret['imgurl'];
 if($ret['relations'])
 {
-	$ret = '<img style="width:100%;height:auto;" src="' . $imgurl . '" />';
+	$ret = '<img style="max-width:100%;height:auto;" src="' . $imgurl . '" />';
 	print($ret);
 }else
 {
