@@ -21,7 +21,33 @@ $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) 
 function SetCache($type, $value) {
 	global $config;
 	$url = trim($config['rooturl'], "/") . "/alert.php?type=" . $type . "&value=" . $value . "&cache=set";
-	return " - setcache_status:" . curlGet($url);
+	return " - $type:$value:setcache_status:" . curlGet($url);
+}
+
+function FunctionalCIs($app) {
+	global $iTopAPI;
+	global $map;
+	$ret = "";
+	$query = "SELECT ApplicationSolution WHERE name='" . $app . "'";
+	$data = json_decode($iTopAPI->coreGet("ApplicationSolution", $query), true)['objects'];
+	if(!$data) return $ret;
+	$data = reset($data);
+	$cis = $data['fields']['functionalcis_list'];
+	foreach($cis as $k => $v) {
+		$type = $map[$v['functionalci_id_finalclass_recall']];
+		$value = $v['functionalci_name'];
+		if($type == "server") {
+			$query = "SELECT PhysicalIP WHERE connectableci_name='" . $value . "' AND type!='oob'";
+			$data = json_decode($iTopAPI->coreGet("PhysicalIP", $query),true)['objects'];
+			if(!$data) return $ret;
+			foreach($data as $key => $ip) {
+				$ret = $ret . SetCache("ip", $ip['fields']['ipaddress']);
+			}
+		} else {
+			$ret = $ret . SetCache($type, $value);
+		}
+	}	
+	return $ret;
 }
 
 function alertruleLnkSetCache($ID) {
@@ -37,6 +63,9 @@ function alertruleLnkSetCache($ID) {
 	$type = $map[$data['fields']['functionalci_id_finalclass_recall']];
 	$value = $data['fields']['functionalci_name'];
 	$ret = $ret . SetCache($type, $value);
+	if($type == "app") {
+		$ret = $ret . FunctionalCIs($value);
+	}
 	return $ret;
 }
 
@@ -55,6 +84,9 @@ function alertruleSetCache($ID) {
 		$type = $map[$v['functionalci_id_finalclass_recall']];
 		$value = $v['functionalci_name'];
 		$ret = $ret . SetCache($type, $value);
+		if($type == "app") {
+			$ret = $ret . FunctionalCIs($value);
+		}
 	}
 	return($ret);
 }
