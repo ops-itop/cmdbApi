@@ -57,6 +57,22 @@ function errorInfo() {
 	return $info;
 }
 
+function getApps($relations) {
+	$apps = [];
+	foreach($relations as $k => $v) {
+		if(preg_match("/^Server::.*/", $k)) {
+			foreach($v as $key => $val) {
+				if(preg_match('/^ApplicationSolution::.*/', $val['key'])) {
+					$item = explode('::', $val['key'])[2];
+					$item = explode('.', $item)[1];
+					$apps[] = $item;
+				}
+			}
+		}
+	}
+	return $apps;
+}
+
 function getServerLoginInfo($ip)
 {
 	global $iTopAPI;
@@ -68,17 +84,19 @@ function getServerLoginInfo($ip)
 		'hide_relations' => [],
 		'direction' => 'both',
 		'filter' => ["Server","ApplicationSolution","Person"],
-		'depth' => 3,
+		'depth' => 2,
 	);
 	$data = $iTopAPI->extRelated("Server", $query, "impacts", $optional);
 
-	$obj = json_decode($data, true)['objects'];
+	$data = json_decode($data, true);
+	$obj = $data['objects'];
 	if(!$obj)
 	{
 		return(errorInfo());
 	}
 	
-	$apps = [];
+	$relations = $data['relations'];
+	$apps = getApps($relations);
 	$contacts = [];
 	$location = "";
 	$status = "";
@@ -91,9 +109,6 @@ function getServerLoginInfo($ip)
 		if($v['class'] == "Server") {
 			$location = $v['fields']['location_name'];
 			$status = $map_status[$v['fields']['status']];
-		}
-		if($v['class'] == "ApplicationSolution") {
-			$apps[] = $v['fields']['name'];
 		}
 	}
 
