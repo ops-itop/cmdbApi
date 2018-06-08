@@ -32,8 +32,8 @@ function getFunctionalCIId($type, $value)
 	$query = "SELECT ". $class . " WHERE name = '" . $value . "'";
 
 	if($class == 'PhysicalIP') {
-		$query = "SELECT Server AS s JOIN ". $class . " AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress='" . $value . "'";
-		$class = "Server";
+		$query = "SELECT ApplicationSolution AS app JOIN lnkApplicationSolutionToFunctionalCI AS l ON l.applicationsolution_id=app.id JOIN Server AS s ON l.functionalci_id=s.id JOIN PhysicalIP AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress='" . $value . "'";
+		$class = "ApplicationSolution";
 	}
 	$data = json_decode($iTopAPI->coreGet($class, $query), true);
 	if(array_key_exists("objects", $data) && $data['objects'] != null)
