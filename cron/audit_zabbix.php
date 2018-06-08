@@ -46,6 +46,7 @@ function main()
 	$conflict = array();
 	// 先一次性取出zabbix中所有的host，并组装成key为sn的数组
 	$zbxServers = zabbixAllHostGet();
+	print_r("zabbix count: " . count($zbxServers) . "\n");
 	$zbxAll = array();
 	foreach($zbxServers as $server)
 	{
