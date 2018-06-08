@@ -13,8 +13,15 @@
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
+$DEBUG = getenv("DEBUG")
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
+
+// 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等几秒
+if(!$DEBUG)
+{
+	sleep($config['update']['delay']);
+}
 
 function accountsSetCache($ID) {
 	global $config;
