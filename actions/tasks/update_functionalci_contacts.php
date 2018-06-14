@@ -71,6 +71,27 @@ function doUpdate($fid,$contacts_arr)
 	return($ret);
 }
 
+function upstreamContacts($fid) {
+	global $iTopAPI;
+	$contacts_arr = [];
+	$optional = array(
+		"depth"=>1,
+		"filter"=>["ApplicationSolution"],
+		"output_fields"=>["ApplicationSolution"=>"contact_list_custom"]
+	);
+	$data = $iTopAPI->extRelated("FunctionalCI", $fid, "impacts", $optional);
+	$obj = json_decode($data, true)['objects'];
+	if(!$obj) return $contacts_arr;
+
+	foreach($obj as $k => $v) {
+		foreach($v['fields']['contact_list_custom'] as $key => $val) {
+			$contacts_arr[] = preg_replace('/@.*/s', '', $val['contact_email']);
+		}
+	}
+	$contacts_arr = array_unique($contacts_arr);
+	return $contacts_arr;
+}
+
 function updateContacts($ID) {
 	global $TITLE;
 	global $log;
@@ -91,7 +112,8 @@ function updateContacts($ID) {
 			// 排除App(上游app的联系人不受下游app影响)
 			if($recall != "ApplicationSolution")
 			{
-				$result[] = $recall . ":" . doUpdate($fid, $contacts_arr);
+				$upContacts = upstreamContacts($fid);
+				$result[] = $recall . ":" . doUpdate($fid, $upContacts);
 			}
 		}
 	}else{
