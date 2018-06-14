@@ -104,7 +104,7 @@ function updateContacts($ID) {
 }
 
 if($ID == "all") {
-	$ids = getApps();
+	$ids = getApps($iTopAPI);
 	foreach($ids as $k => $v) {
 		print("update:$k:$v\n");
 		updateContacts($k);
