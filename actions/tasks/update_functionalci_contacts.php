@@ -20,52 +20,39 @@ $DEBUG = getenv("DEBUG");
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
-// 取app上游的一级关联，并排除Server和集群,App(上游app的联系人不受下游app影响),机柜等
-$hide_relations = array("Rack");
-$filter = array("ApplicationSolution");
-$output_fields = array("ApplicationSolution"=>"contact_list_custom"); // 顺便取到app的联系人
-$optional = array("filter"=>$filter,"hide_relations"=>$hide_relations,"depth"=>1, 
-	"direction"=>"up","output_fields"=>$output_fields);
-
 // 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等几秒
 if(!$DEBUG)
 {
 	sleep($config['update']['delay']);
 }
-$data = json_decode($iTopAPI->extRelated("ApplicationSolution", $ID, "impacts", $optional), true);
 
-$result = array();
-// 更新app的联系人
-$contacts_arr = array();
-if($data['objects'])
-{
-	$app_contact = $data['objects']["ApplicationSolution::$ID"]['fields']['contact_list_custom'];
-	foreach($app_contact as $k => $person)
-	{
-		if($person['contact_id_finalclass_recall'] == "Person")
-			$contacts_arr[] = preg_replace('/@.*/s', '', $person['contact_email']);
-	}
-	$result[] = "ApplicationSolution:" . doUpdate($ID,$contacts_arr);
-}else{
-	$result[] = "readAppError";
+function getData($ID) {
+	global $iTopAPI;
+	// 取app上游的一级关联，并排除Server和集群,App(上游app的联系人不受下游app影响),机柜等
+	$hide_relations = array("Rack");
+	$filter = array("ApplicationSolution");
+	$output_fields = array("ApplicationSolution"=>"contact_list_custom"); // 顺便取到app的联系人
+	$optional = array("filter"=>$filter,"hide_relations"=>$hide_relations,"depth"=>1, 
+		"direction"=>"up","output_fields"=>$output_fields);
+
+	$data = json_decode($iTopAPI->extRelated("ApplicationSolution", $ID, "impacts", $optional), true);
+	return $data;
 }
 
-// 更新上游配置项的联系人
-if($data['relations'])
-{
-	foreach($data['relations'] as $k => $v)
+function getContacts($data,$ID) {
+	// 更新app的联系人
+	$contacts_arr = array();
+	if($data['objects'])
 	{
-		$item = explode("::", $k);
-		$recall = $item[0];
-		$fid = $item[1];
-		// 排除App(上游app的联系人不受下游app影响)
-		if($recall != "ApplicationSolution")
+		$app_contact = $data['objects']["ApplicationSolution::$ID"]['fields']['contact_list_custom'];
+		foreach($app_contact as $k => $person)
 		{
-			$result[] = $recall . ":" . doUpdate($fid, $contacts_arr);
+			if($person['contact_id_finalclass_recall'] == "Person")
+				$contacts_arr[] = preg_replace('/@.*/s', '', $person['contact_email']);
 		}
 	}
-}else{
-	$result[] = "noUpstream";	
+
+	return $contacts_arr;
 }
 
 function doUpdate($fid,$contacts_arr)
@@ -84,6 +71,57 @@ function doUpdate($fid,$contacts_arr)
 	return($ret);
 }
 
-$ret = implode(" # ", $result);
-file_put_contents($log, $config['datetime'] . " - $ID - $TITLE - $ret\n", FILE_APPEND);
+function updateContacts($ID) {
+	global $TITLE;
+	global $log;
+	global $config;
+	$result = array();
+	$data = getData($ID);
+	$contacts_arr = getContacts($data, $ID);
+	// 更新APP联系人
+	$result[] = "ApplicationSolution:" . doUpdate($ID,$contacts_arr);
+	// 更新上游配置项的联系人
+	if($data['relations'])
+	{
+		foreach($data['relations'] as $k => $v)
+		{
+			$item = explode("::", $k);
+			$recall = $item[0];
+			$fid = $item[1];
+			// 排除App(上游app的联系人不受下游app影响)
+			if($recall != "ApplicationSolution")
+			{
+				$result[] = $recall . ":" . doUpdate($fid, $contacts_arr);
+			}
+		}
+	}else{
+		$result[] = "noUpstream";	
+	}
+	$ret = implode(" # ", $result);
+	file_put_contents($log, $config['datetime'] . " - $ID - $TITLE - $ret\n", FILE_APPEND);
+}
+
+function getApps()
+{
+	global $iTopAPI;
+	$oql = "SELECT ApplicationSolution AS app WHERE app.status='production'";
+	$data = $iTopAPI->coreGet("ApplicationSolution", $oql, "name");
+	$apps = json_decode($data, true)['objects'];
+	$arr = [];
+	foreach($apps as $key => $val) {
+		$arr[$val['key']] = $val['fields']['name'];
+	}
+	return $arr;
+}
+
+if($ID == "all") {
+	$ids = getApps();
+	foreach($ids as $k => $v) {
+		print("update:$k:$v\n");
+		updateContacts($k);
+	}
+} else {
+	updateContacts($ID);
+}
+
 ?>
