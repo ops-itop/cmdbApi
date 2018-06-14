@@ -13,7 +13,7 @@
 require dirname(__FILE__).'/../etc/config.php';
 
 $ID = getenv("ID");
-$DEBUG = getenv("DEBUG")
+$DEBUG = getenv("DEBUG");
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
