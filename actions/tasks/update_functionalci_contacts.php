@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?
 /**
- * Usage: 用于更新FunctionalCI(除Server外, MiddleWare,Domain等contacts属性取下游App的contacts)的contacts属性。
+ * Usage: 用于更新FunctionalCI(Server, MiddleWare,Domain等contacts属性取下游App的contacts)的contacts属性。
  * 触发器作用于lnkContactToApplicationSolution， action参数: ID=>$this->applicationsolution_id$
  * 也作用于lnkApplicationSolutionToFunctionalCI, app依赖变更时也需要更新联系人， action参数: ID=>$this->applicationsolution_id$
  * 也可以单独执行， ID="$id" ./update_functionalci_contacts.php 可以批量更新contacts属性
@@ -21,7 +21,7 @@ $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 // 取app上游的一级关联，并排除Server和集群,App(上游app的联系人不受下游app影响),机柜等
-$hide_relations = array("Rack", "Server");
+$hide_relations = array("Rack");
 $filter = array("ApplicationSolution");
 $output_fields = array("ApplicationSolution"=>"contact_list_custom"); // 顺便取到app的联系人
 $optional = array("filter"=>$filter,"hide_relations"=>$hide_relations,"depth"=>1, 
@@ -36,9 +36,9 @@ $data = json_decode($iTopAPI->extRelated("ApplicationSolution", $ID, "impacts", 
 
 $result = array();
 // 更新app的联系人
+$contacts_arr = array();
 if($data['objects'])
 {
-	$contacts_arr = array();
 	$app_contact = $data['objects']["ApplicationSolution::$ID"]['fields']['contact_list_custom'];
 	foreach($app_contact as $k => $person)
 	{
@@ -61,37 +61,21 @@ if($data['relations'])
 		// 排除App(上游app的联系人不受下游app影响)
 		if($recall != "ApplicationSolution")
 		{
-			$result[] = $recall . ":" . updateUpstream($fid);
+			$result[] = $recall . ":" . doUpdate($fid, $contacts_arr);
 		}
 	}
 }else{
 	$result[] = "noUpstream";	
 }
 
-function updateUpstream($fid)
+function doUpdate($fid,$contacts_arr)
 {
 	global $iTopAPI;
-	$data = $iTopAPI->extRelated("FunctionalCI", $fid, "impacts", array("depth"=>2));
-	$obj = json_decode($data, true)['objects'];
-	$contacts_arr = array();
-	if($obj)
-	{
-		foreach($obj as $k => $v)
-		{
-			$contacts_arr[] = preg_replace('/@.*/s', '', $v['fields']['email']);	
-		}
-	}
 	// contacts字段最多支持255个字符，因此这里取contacts_arr的前5个作为contacts字段，多余的忽略
 	if(count($contacts_arr) > 10)
 	{
 		$contacts_arr = array_slice($contacts_arr, 0, 5);
 	}
-	return(doUpdate($fid, $contacts_arr));
-}
-
-function doUpdate($fid,$contacts_arr)
-{
-	global $iTopAPI;
 	$contacts = implode(",", $contacts_arr);
 	$comment = "update contacts to $contacts from action-shell-exec";
 	$ret = $iTopAPI->coreUpdate("FunctionalCI", $fid, array("contacts"=>$contacts),$comment);
