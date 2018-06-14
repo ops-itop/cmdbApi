@@ -33,32 +33,38 @@ $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 function getServerInfo($ip)
 {
 	global $iTopAPI;
+	$option = array(
+		"depth"=>1,
+		"filter"=>["Server","ApplicationSolution"],
+		"output_fields"=>["Server"=>"use_pam","ApplicationSolution"=>"contact_list_custom"]
+	);
 	$query = "SELECT Server AS s JOIN PhysicalIP AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress = '$ip'";
-	$data = $iTopAPI->coreGet("Server", $query);
+	$data = $iTopAPI->extRelated("Server",$query, "impacts", $option);
 	$obj = json_decode($data, true)['objects'];
 	if(!$obj)
 	{
 		return(102);
 	}
+	$server_id=0;
+	$contacts=array();
 	foreach($obj as $k => $v)
 	{
-		$server = $v;
-	}
-	if($server['fields']['use_pam'] != "yes")
-	{
-		return(101);
-	}
-
-	$contacts = array();
-	foreach($server['fields']['contacts_list'] as $k => $v)
-	{
-		$person = preg_replace("/@.*/","",$v['contact_email']);
-		if($person!="")
-		{
-			array_push($contacts, $person);
+		if($v['class'] == "Server") {
+			$server_id = $v['key'];
+			if($v['fields']['use_pam'] != "yes") {
+				return(101);
+			}
+		}
+		if($v['class'] == "ApplicationSolution") {
+			foreach($v['fields']['contact_list_custom'] as $key => $val) {
+				$contacts[] = preg_replace("/@.*/","",$val['contact_email']);
+			}
 		}
 	}
-	$ret = array("server_id" => $server['key'], "contacts" => $contacts);
+	
+	$contacts = array_unique($contacts);
+
+	$ret = array("server_id" => $server_id, "contacts" => $contacts);
 	return($ret);
 }
 
