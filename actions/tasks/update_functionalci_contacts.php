@@ -71,29 +71,9 @@ function doUpdate($fid,$contacts_arr)
 	return($ret);
 }
 
-function upstreamContacts($fid) {
-	global $iTopAPI;
-	$contacts_arr = [];
-	$optional = array(
-		"depth"=>1,
-		"filter"=>["ApplicationSolution"],
-		"output_fields"=>["ApplicationSolution"=>"contact_list_custom"]
-	);
-	$data = $iTopAPI->extRelated("FunctionalCI", $fid, "impacts", $optional);
-	$obj = json_decode($data, true)['objects'];
-	if(!$obj) return $contacts_arr;
-
-	foreach($obj as $k => $v) {
-		foreach($v['fields']['contact_list_custom'] as $key => $val) {
-			$contacts_arr[] = preg_replace('/@.*/s', '', $val['contact_email']);
-		}
-	}
-	$contacts_arr = array_unique($contacts_arr);
-	return $contacts_arr;
-}
-
 function updateContacts($ID) {
 	global $TITLE;
+	global $iTopAPI;
 	global $log;
 	global $config;
 	$result = array();
@@ -112,7 +92,7 @@ function updateContacts($ID) {
 			// 排除App(上游app的联系人不受下游app影响)
 			if($recall != "ApplicationSolution")
 			{
-				$upContacts = upstreamContacts($fid);
+				$upContacts = GetFunctionalCIContacts($fid, $iTopAPI);
 				$result[] = $recall . ":" . doUpdate($fid, $upContacts);
 			}
 		}
@@ -121,19 +101,6 @@ function updateContacts($ID) {
 	}
 	$ret = implode(" # ", $result);
 	file_put_contents($log, $config['datetime'] . " - $ID - $TITLE - $ret\n", FILE_APPEND);
-}
-
-function getApps()
-{
-	global $iTopAPI;
-	$oql = "SELECT ApplicationSolution AS app WHERE app.status='production'";
-	$data = $iTopAPI->coreGet("ApplicationSolution", $oql, "name");
-	$apps = json_decode($data, true)['objects'];
-	$arr = [];
-	foreach($apps as $key => $val) {
-		$arr[$val['key']] = $val['fields']['name'];
-	}
-	return $arr;
 }
 
 if($ID == "all") {
