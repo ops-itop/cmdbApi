@@ -142,7 +142,7 @@ function audit_monitor($data, $zbxServers)
 	
 	foreach($data as $key => $server)
 	{
-		if($server['fields']['status'] != "production") {
+		if($server['fields']['status'] == "obsolete") {
 			continue;
 		}
 		
