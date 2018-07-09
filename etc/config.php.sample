@@ -89,3 +89,6 @@ $config['memcached']['expiration'] = 604800;
 
 // k8s
 $config['k8s']['dev'] = ['dev'];
+
+// reset pwd
+$config['resetpw']['allowed_ip'] = "192.168.60.1";
