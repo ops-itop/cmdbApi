@@ -15,3 +15,8 @@ Depth_rds="2,RDS"
 Depth_mysql="2,MySQL"
 Depth_redis="2,Redis"
 Depth_mongodb="2,MongoDB"
+
+CMDB_RESETPWDAPI="http://cmdb.cn/api/resetpwd.php"
+USER_PP="/tmp/user.pp"
+MAIL_API="http://mail.cn/"
+CC_LIST="xxx@xx.com,xxx@xxx.com"
