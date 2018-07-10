@@ -7,27 +7,14 @@
  * Created Time: 2017-03-29 10:05:48
  **/
 
-require '../etc/config.php';
-require '../composer/vendor/autoload.php';
-
-define('ITOPURL', $config['itop']['url']);
-define('ITOPUSER', $config['itop']['user']);
-define('ITOPPWD', $config['itop']['password']);
+require 'common/init.php';
 
 define('CACHE_HOST', $config['memcached']['host']);
 define('CACHE_PORT', $config['memcached']['port']);
 define('CACHE_EXPIRATION', $config['memcached']['expiration']);
 
-
-// 状态
-define('PAM_OFF', "PAM_OFF");
-define('ACCOUNTS_OK', "ACCOUNTS_OK");
-
-$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
-
 /* 
  * 100 成功
- * 101 未开启PAM
  * 102 IP不存在
  */
 function getServerInfo($ip)
@@ -36,7 +23,7 @@ function getServerInfo($ip)
 	$option = array(
 		"depth"=>1,
 		"filter"=>["Server","ApplicationSolution"],
-		"output_fields"=>["Server"=>"use_pam","ApplicationSolution"=>"contact_list_custom"]
+		"output_fields"=>["Server"=>"name","ApplicationSolution"=>"contact_list_custom"]
 	);
 	$query = "SELECT Server AS s JOIN PhysicalIP AS ip ON ip.connectableci_id=s.id WHERE ip.ipaddress = '$ip'";
 	$data = $iTopAPI->extRelated("Server",$query, "impacts", $option);
@@ -49,12 +36,6 @@ function getServerInfo($ip)
 	$contacts=array();
 	foreach($obj as $k => $v)
 	{
-		if($v['class'] == "Server") {
-			$server_id = $v['key'];
-			if($v['fields']['use_pam'] != "yes") {
-				return(101);
-			}
-		}
 		if($v['class'] == "ApplicationSolution") {
 			foreach($v['fields']['contact_list_custom'] as $key => $val) {
 				$contacts[] = preg_replace("/@.*/","",$val['contact_email']);
@@ -100,8 +81,7 @@ function getUser($ip, $serverinfo)
 }
 
 /*
- * 定义返回格式为:  状态#allowed users|sudo users
- * 状态包含: PAM_OFF ACCOUNTS_OK
+ * 定义返回格式为:  allowed users|sudo users
  * allowed users及sudo users以逗号分隔
  */
 
@@ -121,10 +101,9 @@ function checkIP($ip_para)
 	return(false);
 }
 
-// 使用缓存需要配合iTop触发器及action-shell-exec， lnkContactToFunctionalCI对象创建或者工单
+// 使用缓存需要配合iTop触发器及action-shell-exec， lnkApplicationSolutionToFunctionalCI对象创建或者工单
 // 审批通过时，需要触发一个脚本去更新缓存。对象删除暂时不能通过触发器，考虑每小时定时任务
 // 或者开发一个trigger-ondelete插件
-// Server的pam开关有变化时，也需要触发操作，需要trigger-onupdate插件
 function setCache($ip, $value)
 {
 	$m = new Memcached();
@@ -143,17 +122,13 @@ function getCache($ip)
 function main($ip)
 {
 	$serverinfo = getServerInfo($ip);
-	if($serverinfo == 101)
-	{
-		return(PAM_OFF . "#|");
-	}
 	if($serverinfo == 102)
 	{
 		return("NOT FOUND");
 	}
 
 	$users = getUser($ip, $serverinfo);
-	return(ACCOUNTS_OK . "#" . $users);
+	return($users);
 }
 
 if(isset($_GET['ip'])) {
