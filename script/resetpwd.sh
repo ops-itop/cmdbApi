@@ -19,6 +19,10 @@ function queryResetQueue() {
 	echo >>$TmpQueue
 }
 
+function updateCmdb() {
+	curl -s "$CMDB_RESETPWDAPI?action=update&id=$1"
+}
+
 function sendMail() {
 	email=$1
 	user=`echo $email|cut -f1 -d'@'`
@@ -28,38 +32,78 @@ function sendMail() {
 	echo $gpgKey > $tmpKeyfile
 	sed -i 's/#/\r\n/g' $tmpKeyfile
 	keyId=`gpg --import $tmpKeyfile 2>&1|grep "<"|awk '{print $3}' |sed 's/：/:/g'|awk -F':' '{print $1}'`
-	
-	tmpPassFile="/tmp/passwdFile-$user"
-	tmpEmail="/tmp/passwdMail-$user"
-	echo $password >$tmpPassFile
-	gpg --trust-model always --yes -a -r $keyId -o $tmpEmail -e $tmpPassFile
 
-	content="请使用GnuPG解密您的密码<br><br><hr>`cat $tmpEmail`<br><br><hr>正常情况下1小时内生效，如超过一小时还未生效请联系运维<br>如果着急使用，请联系服务器管理员执行puppet同步命令: puppet agent --config /etc/puppet/letv.conf --onetime --verbose --no-daemonize"
-	curl -s -XPOST "$MAIL_API" -d "tos=$email&cc=$CC_LIST&subject=服务器密码设置-$user&content=$content&format=html"
-	#rm -f $tmpPassFile $tmpEmail
+	
+	content="您登陆服务器的用户名为  $user；密码为  $password\r\n\r\n正常情况下1小时内生效，如超过一小时还未生效请联系运维\r\n\r\n如果着急使用，请联系服务器管理员执行puppet同步命令: puppet agent --config /etc/puppet/letv.conf --onetime --verbose --no-daemonize"
+	content=`echo -e "$content" |gpg --trust-model always --yes --local-user $LOCAL_USER -a -r $keyId --sign -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
+
+	if [ "$content"x == ""x ];then
+		content="加密失败，可能是您的GPG公钥有误，请确认在CMDB中填写了正确的GPG公钥"
+	fi
+	curl -s -XPOST "$MAIL_API" -d "tos=$email&cc=$CC_LIST&subject=服务器密码-$user-请使用您的gpg私钥解密后查看&content=$content&format=html"
 }
 
 function genPwd() {
-	echo "ss"
+	special[0]="#"
+	special[1]="$"
+	special[2]="&"
+	special[3]="^"
+	special[4]="!"
+	special[5]="%"
+	special[6]="@"
+ 
+	index=0
+	str=""
+	for i in {a..z}; do arr[index]=$i; index=`expr ${index} + 1`; done
+	for i in {A..Z}; do arr[index]=$i; index=`expr ${index} + 1`; done
+	for i in {0..9}; do arr[index]=$i; index=`expr ${index} + 1`; done
+	for i in ${special[@]}; do arr[index]=$i; index=`expr ${index} + 1`; done
+	for i in {1..20}; do 
+		((random=$RANDOM%$index))
+		str="$str${arr[random]}"
+	done
+	echo $str
 }
 
 function resetPwd() {
 	username=$1
 	password=$2
-
+	shadowPass=`python -c "import crypt,getpass;pw='$password';print(crypt.crypt(pw))"`
+	grep -w "$username\":" $USER_PP &>/dev/null && r=1 || r=0
+	if [ $r -eq 1 ];then
+		sed -i "/$username\":/!b;n;n;c\\\t\t\tpassword => '$shadowPass';" $USER_PP
+	else
+		sed -i '/^}/d' $USER_PP
+		cat >>$USER_PP <<EOF
+	user {
+		"$username":
+			ensure => present, home => '/home/$username', managehome => true,
+			password => '$shadowPass';
+	}
+}
+EOF
+	fi
 }
 
 function run() {
 	queryResetQueue
 	while read line;do
+		dt=`date "+%Y-%m-%d %H:%M:%S"`
 		pid=`echo $line |cut -f1 -d','`
 		email=`echo $line |cut -f2 -d','`
 		username=`echo $email |cut -f1 -d'@'`
 		gpgkey=`echo $line |cut -f3 -d','`
 
+		[ "$email"x == ""x ] && echo "$dt noTasks" && continue
+
 		password=`genPwd`
 		resetPwd "$username" "$password"
+
+		echo -n "$dt $username "
 		sendMail "$email" "$password" "$gpgkey"
+		echo -n " "
+		updateCmdb $pid
+		echo
 	done <$TmpQueue
 }
 
