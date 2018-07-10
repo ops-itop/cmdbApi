@@ -48,3 +48,24 @@ function getApps($iTopAPI)
 	return $arr;
 }
 
+/**
+ * 更新accounts.php缓存
+ */
+function accountsSetCache($ID) {
+	global $config;
+	global $iTopAPI;
+	$ret = "";
+	$sOql = "SELECT PhysicalIP WHERE connectableci_id  = '" . $ID . "' AND type!='oob'";
+	$ips = json_decode($iTopAPI->coreGet("PhysicalIP", $sOql, "ipaddress"), true)['objects'];
+	if($ips)
+	{
+		foreach($ips as $key => $value)
+		{
+			$ip = $value['fields']['ipaddress'];
+			$url = trim($config['rooturl'], "/") . "/accounts.php?ip=" . $ip . "&cache=set";
+			$ret = $ret . " - setcache_status:" . curlGet($url);
+		}	
+	}
+	return($ret);
+}
+

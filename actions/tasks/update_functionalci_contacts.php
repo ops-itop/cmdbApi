@@ -92,6 +92,11 @@ function updateContacts($ID) {
 			// 排除App(上游app的联系人不受下游app影响)
 			if($recall != "ApplicationSolution")
 			{
+				if($recall == "Server") {
+					$ret = accountsSetCache($fid);
+					$accountlog = str_replace(".log", "-accountcache.log", $log);
+					file_put_contents($accountlog, $config['datetime'] . " - $fid - $ret\n", FILE_APPEND);
+				}
 				$upContacts = GetFunctionalCIContacts($fid, $iTopAPI);
 				$result[] = $recall . ":" . doUpdate($fid, $upContacts);
 			}
