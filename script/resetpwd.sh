@@ -108,3 +108,4 @@ function run() {
 }
 
 run
+rm -f $TmpQueue
