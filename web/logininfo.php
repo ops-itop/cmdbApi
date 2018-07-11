@@ -9,23 +9,7 @@
  * 机器上部署 /etc/profile.d/login.sh 访问此接口
  **/
 
-require '../etc/config.php';
-require '../composer/vendor/autoload.php';
-
-define('ITOPURL', $config['itop']['url']);
-define('ITOPUSER', $config['itop']['user']);
-define('ITOPPWD', $config['itop']['password']);
-
-define('CACHE_HOST', $config['memcached']['host']);
-define('CACHE_PORT', $config['memcached']['port']);
-define('CACHE_EXPIRATION', $config['memcached']['expiration']);
-
-
-// 状态
-define('PAM_OFF', "PAM_OFF");
-define('ACCOUNTS_OK', "ACCOUNTS_OK");
-
-$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
+require 'common/init.php';
 
 define('HEAD',"\n##################### Server Info ######################\n");
 define('WARN',"WARNING!!此机器未登记业务信息，有被下线风险");
@@ -129,34 +113,14 @@ function getServerLoginInfo($ip)
 }
 
 
-// 使用缓存需要配合iTop触发器及action-shell-exec， lnkContactToFunctionalCI对象创建或者工单
-// 审批通过时，需要触发一个脚本去更新缓存。对象删除暂时不能通过触发器，考虑每小时定时任务
-// 或者开发一个trigger-ondelete插件
-// Server的pam开关有变化时，也需要触发操作，需要trigger-onupdate插件
-function setCache($ip, $value)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	$expiration = time() + (int)CACHE_EXPIRATION;
-	return($m->set($ip, $value, $expiration));
-}
-
-function getCache($ip)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	return($m->get($ip));
-}
-
 if(isset($_GET['ip'])) {
 	$ip = $_GET['ip'];
-	// 暂时不用缓存
-	die(getServerLoginInfo($ip));
-	// 设置缓存(无需校验IP)
+	$key = "logininfo_" . $ip;
+
 	if(isset($_GET['cache']) && $_GET['cache'] == "set")
 	{
 		$ret = getServerLoginInfo($ip);
-		die(setCache($ip, $ret));
+		die(setCache($key, $ret));
 	}
 
 	if(isset($_GET['cache']) && $_GET['cache'] == "false")
@@ -165,11 +129,11 @@ if(isset($_GET['ip'])) {
 	}else
 	{
 		// 首先获取缓存内容
-		$ret = getCache($ip);
+		$ret = getCache($key);
 		if(!$ret)
 		{
 			$ret = main($ip);
-			setCache($ip, $ret);
+			setCache($key, $ret);
 		}
 		die($ret);
 	}

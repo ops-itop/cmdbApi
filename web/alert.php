@@ -7,18 +7,7 @@
  * Created Time: 2017-03-29 10:05:48
  **/
 
-require '../etc/config.php';
-require '../composer/vendor/autoload.php';
-
-define('ITOPURL', $config['itop']['url']);
-define('ITOPUSER', $config['itop']['user']);
-define('ITOPPWD', $config['itop']['password']);
-
-define('CACHE_HOST', $config['memcached']['host']);
-define('CACHE_PORT', $config['memcached']['port']);
-define('CACHE_EXPIRATION', $config['memcached']['expiration']);
-
-$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
+require 'common/init.php';
 
 function getFunctionalCIId($type, $value)
 {
@@ -68,23 +57,6 @@ function getAlertRule($functionalci_id)
 		}
 	}
 	return $rule;
-}
-
-// 使用缓存需要配合iTop触发器及action-shell-exec， lnkFuncationalCIToAlertRule
-// 对象创建或更新删除时需要触发一个脚本去更新缓存
-function setCache($key, $result)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	$expiration = time() + (int)CACHE_EXPIRATION;
-	return($m->set($key, $result, $expiration));
-}
-
-function getCache($key)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	return($m->get($key));
 }
 
 function main($type, $value)

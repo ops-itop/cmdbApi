@@ -104,24 +104,6 @@ function checkIP($ip_para)
 	return(false);
 }
 
-// 使用缓存需要配合iTop触发器及action-shell-exec， lnkApplicationSolutionToFunctionalCI对象创建或者工单
-// 审批通过时，需要触发一个脚本去更新缓存。对象删除暂时不能通过触发器，考虑每小时定时任务
-// 或者开发一个trigger-ondelete插件
-function setCache($ip, $value)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	$expiration = time() + (int)CACHE_EXPIRATION;
-	return($m->set($ip, $value, $expiration));
-}
-
-function getCache($ip)
-{
-	$m = new Memcached();
-	$m->addServer(CACHE_HOST, CACHE_PORT);
-	return($m->get($ip));
-}
-
 function main($ip)
 {
 	$serverinfo = getServerInfo($ip);
@@ -136,11 +118,12 @@ function main($ip)
 
 if(isset($_GET['ip'])) {
 	$ip = $_GET['ip'];
+	$key = "account_" . $ip;
 	// 设置缓存(无需校验IP)
 	if(isset($_GET['cache']) && $_GET['cache'] == "set")
 	{
 		$ret = main($ip);
-		die(setCache($ip, $ret));
+		die(setCache($key, $ret));
 	}
 	if(!$config['accounts']['debug'])
 	{
@@ -156,11 +139,11 @@ if(isset($_GET['ip'])) {
 	}else
 	{
 		// 首先获取缓存内容
-		$ret = getCache($ip);
+		$ret = getCache($key);
 		if(!$ret)
 		{
 			$ret = main($ip);
-			setCache($ip, $ret);
+			setCache($key, $ret);
 		}
 		die($ret);
 	}

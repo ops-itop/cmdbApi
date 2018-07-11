@@ -123,3 +123,26 @@ function http_mail($api, $data)
 {
 	return(curlPost($api, $data));
 }
+
+
+/**
+ * 设置缓存
+ */
+function setCache($key, $result)
+{
+	$m = new Memcached();
+	$m->addServer(CACHE_HOST, CACHE_PORT);
+	$expiration = time() + (int)CACHE_EXPIRATION;
+	return($m->set($key, $result, $expiration));
+}
+
+/**
+ * 获取缓存
+ */
+function getCache($key)
+{
+	$m = new Memcached();
+	$m->addServer(CACHE_HOST, CACHE_PORT);
+	return($m->get($key));
+}
+
