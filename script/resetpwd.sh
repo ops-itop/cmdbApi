@@ -77,7 +77,7 @@ function resetPwd() {
 		cat >>$USER_PP <<EOF
 	user {
 		"$username":
-			ensure => present, home => '/home/$username', managehome => true, groups => ['$username','docker'],
+			ensure => present, home => '/home/$username', managehome => true, groups => ['docker'],
 			password => '$shadowPass';
 	}
 }
