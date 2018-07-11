@@ -6,14 +6,7 @@
  * Mail: i@annhe.net
  * Created Time: 2016-06-24 12:52:34
  **/
-require '../etc/config.php';
-require '../composer/vendor/autoload.php';
-
-define('ITOPURL', $config['itop']['url']);
-define('ITOPUSER', $config['itop']['user']);
-define('ITOPPWD', $config['itop']['password']);
-
-$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
+require 'common/init.php';
 
 if(isset($_GET['type']) and isset($_GET['value'])) {
 	if(isset($_GET['key'])){

@@ -9,10 +9,6 @@
 
 require 'common/init.php';
 
-define('CACHE_HOST', $config['memcached']['host']);
-define('CACHE_PORT', $config['memcached']['port']);
-define('CACHE_EXPIRATION', $config['memcached']['expiration']);
-
 /* 
  * 100 成功
  * 102 IP不存在
