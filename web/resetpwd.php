@@ -37,7 +37,7 @@ if(!isset($_GET['action'])) {
 }
 
 if($_GET['action'] == "query") {
-	$query = "SELECT Person WHERE status='active' AND reset_pwd='yes'";
+	$query = "SELECT Person WHERE status='active' AND reset_pwd='yes' AND gpg_pub_key!=''";
 	$data = $iTopAPI->coreGet("Person", $query, "gpg_pub_key,email");
 	$data = json_decode($data, true)['objects'];
 	$ret = [];
