@@ -43,7 +43,9 @@ if($_GET['action'] == "query") {
 	$ret = [];
 	if($data != null){
 		foreach($data as $k => $v) {
-			$ret[] = $v['key'] . "," . $v['fields']['email'] . "," . str_replace("\r\n","#",$v['fields']['gpg_pub_key']);
+			$gpgKey = preg_replace('/^Comment:.*\r\n/m','',$v['fields']['gpg_pub_key']);
+			$gpgKey = str_replace("\r\n","#", $gpgKey);
+			$ret[] = $v['key'] . "," . $v['fields']['email'] . "," . $gpgKey;
 		}
 		die(implode("\n", $ret));
 	}
