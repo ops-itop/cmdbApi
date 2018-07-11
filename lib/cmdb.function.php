@@ -49,7 +49,7 @@ function getApps($iTopAPI)
 }
 
 /**
- * 更新accounts.php缓存
+ * 更新accounts.php及logininfo.php缓存
  */
 function accountsSetCache($ID) {
 	global $config;
@@ -63,7 +63,10 @@ function accountsSetCache($ID) {
 		{
 			$ip = $value['fields']['ipaddress'];
 			$url = trim($config['rooturl'], "/") . "/accounts.php?ip=" . $ip . "&cache=set";
-			$ret = $ret . " - setcache_status:" . curlGet($url);
+			$ret = $ret . " - setcache-account_status:" . curlGet($url);
+
+			$url_logininfo = trim($config['rooturl'], "/") . "/logininfo.php?ip=" . $ip . "&cache=set";
+			$ret = $ret . " - setcache-logininfo_status:" . curlGet($url_logininfo);
 		}	
 	}
 	return($ret);
