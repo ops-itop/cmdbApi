@@ -36,6 +36,9 @@ function getServerInfo($ip)
 	$contacts=array();
 	foreach($obj as $k => $v)
 	{
+		if($v['class'] == "Server") {
+			$server_id = $v['key'];
+		}
 		if($v['class'] == "ApplicationSolution") {
 			foreach($v['fields']['contact_list_custom'] as $key => $val) {
 				$contacts[] = preg_replace("/@.*/","",$val['contact_email']);
@@ -59,7 +62,7 @@ function getUser($ip, $serverinfo)
 		" AND l.status='enabled'" . 
 		" AND l.user_status='enabled' AND (l.expiration > NOW() OR l.expiration <= '$timestamp_0')";
 	$data = $iTopAPI->coreGet("lnkUserToServer", $query, "user_name,user_status,sudo");
-	//die($data);
+	
 	$lnks = json_decode($data, true)['objects'];
 
 	$ret = array("users"=>array(), "sudo"=>array());
