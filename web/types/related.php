@@ -7,9 +7,6 @@
  * Created Time: 2016-06-24 12:52:34
  **/
 
-define("__ROOT__",dirname(__FILE__));
-require __ROOT__ . '/../../lib/core.function.php';
-
 // url监控报警需要支持第三方联系人
 function GetUrlThirdContact($iTopAPI, $value) 
 {

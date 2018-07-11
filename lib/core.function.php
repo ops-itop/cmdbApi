@@ -128,11 +128,11 @@ function http_mail($api, $data)
 /**
  * 设置缓存
  */
-function setCache($key, $result)
+function setCache($key, $result, $ttl=CACHE_EXPIRATION)
 {
 	$m = new Memcached();
 	$m->addServer(CACHE_HOST, CACHE_PORT);
-	$expiration = time() + (int)CACHE_EXPIRATION;
+	$expiration = time() + (int)$ttl;
 	return($m->set($key, $result, $expiration));
 }
 
