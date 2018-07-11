@@ -132,7 +132,7 @@ if(isset($_GET['ip'])) {
 		$ret = getCache($key);
 		if(!$ret)
 		{
-			$ret = main($ip);
+			$ret = getServerLoginInfo($ip);
 			setCache($key, $ret);
 		}
 		die($ret);
