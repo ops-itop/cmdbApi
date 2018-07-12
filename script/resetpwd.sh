@@ -31,6 +31,7 @@ function sendMail() {
 	keyId=`echo "$gpgKey" |sed 's/#/\r\n/g' |gpg --import $tmpKeyfile 2>&1|grep "<"|awk '{print $3}' |sed 's/：/:/g'|awk -F':' '{print $1}'`
 	
 	content="您登陆服务器的用户名为  $user；密码为  $password\r\n\r\n正常情况下1小时内生效，如超过一小时还未生效请联系运维\r\n\r\n如果着急使用，请联系服务器管理员执行puppet同步命令: puppet agent --config /etc/puppet/letv.conf --onetime --verbose --no-daemonize"
+	# cron中使用gpg加密需要设置--homedir
 	content=`echo -e "$content" |gpg --homedir /root/.gnupg --trust-model always --yes --local-user $LOCAL_USER -a -r $keyId --sign -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
 
 	if [ "$content"x == ""x ];then
