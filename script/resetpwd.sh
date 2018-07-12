@@ -31,7 +31,7 @@ function sendMail() {
 	keyId=`echo "$gpgKey" |sed 's/#/\r\n/g' |gpg --import $tmpKeyfile 2>&1|grep "<"|awk '{print $3}' |sed 's/：/:/g'|awk -F':' '{print $1}'`
 	
 	content="您登陆服务器的用户名为  $user；密码为  $password\r\n\r\n正常情况下1小时内生效，如超过一小时还未生效请联系运维\r\n\r\n如果着急使用，请联系服务器管理员执行puppet同步命令: puppet agent --config /etc/puppet/letv.conf --onetime --verbose --no-daemonize"
-	content=`echo -e "$content" |gpg --trust-model always --yes --local-user $LOCAL_USER -a -r $keyId --sign -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
+	content=`echo -e "$content" |gpg --homedir /root/.gnupg --trust-model always --yes --local-user $LOCAL_USER -a -r $keyId --sign -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
 
 	if [ "$content"x == ""x ];then
 		content="加密失败，可能是您的GPG公钥有误，请确认在CMDB中填写了正确的GPG公钥"
@@ -81,24 +81,6 @@ EOF
 	fi
 }
 
-function gpgKeyImport() {
-	tryImportFile="/tmp/gpgkey-try-import-$1"
-	[ ! -f $tryImportFile ] && echo 0 > $tryImportFile
-	current=`cat $tryImportFile`
-	# 5次之后还是失败，那可能真是用户输错gpg public key了，发出提示邮件
-	[ $current -gt 5 ] && rm -f $tryImportFile && echo "succ" && return
-	echo "$2" |sed 's/#/\r\n/g' |gpg --import
-	if [ $? -ne 0 ];then
-		echo "failed"
-		addOne=`cat $tryImportFile |awk '{print $0+1}'`
-		echo $addOne > $tryImportFile
-	else
-		echo "succ"
-		rm -f $tryImportFile
-		return
-	fi
-}
-
 function run() {
 	dt=`date "+%Y-%m-%d %H:%M:%S"`
 	pid=`echo $line |cut -f1 -d','`
@@ -107,7 +89,6 @@ function run() {
 	gpgkey=`echo $line |cut -f3 -d','`
 	
 	[ "$email"x == ""x ] && return
-	[ `gpgKeyImport "$username" "$gpgkey"` == "failed" ] && echo "$dt $email gpgKeyImportErr:$gpgkey" && return
 
 	password=`genPwd`
 	resetPwd "$username" "$password"
