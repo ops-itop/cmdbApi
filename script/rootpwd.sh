@@ -55,7 +55,6 @@ function update() {
 		content="加密失败，可能是您的GPG公钥有误，请确认在CMDB中填写了正确的GPG公钥"
 	fi
 	ip=`myip`
-	ip="127.0.0.1"
 	sn=`mysn`
 	dt=`date +%Y-%m-%d`
 	upStat=`curl -s -XPOST "$ROOTAPI" -d "action=update&ip=$ip&sn=$sn&pwd=$content&date=$dt"`
