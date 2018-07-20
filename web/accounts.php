@@ -84,22 +84,6 @@ function getUser($ip, $serverinfo)
  * allowed users及sudo users以逗号分隔
  */
 
-// 验证IP，只允许访问自己的数据, 
-// 如果使用代理，需要配置 proxy_set_header     X-Forwarded-For $proxy_add_x_forwarded_for;
-function checkIP($ip_para)
-{
-	$ip = getenv("HTTP_X_FORWARDED_FOR");
-	if(!$ip)
-	{
-		$ip = $_SERVER["REMOTE_ADDR"];
-	}
-	if($ip_para == $ip)
-	{
-		return(true);
-	}
-	return(false);
-}
-
 function main($ip)
 {
 	$serverinfo = getServerInfo($ip);
