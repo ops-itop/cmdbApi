@@ -50,7 +50,7 @@ function update() {
 	for id in `echo $keyIds |tr ',' ' '`;do
 		recipient="-r $id $recipient"
 	done
-	content=`echo $password |gpg --homedir /root/.gnupg --trust-model always --yes -a $recipient -e|sed ':a;N;s/\n/%0A/g;ba'|sed 's/\+/%2B/g'`
+	content=`echo $password |gpg --homedir /root/.gnupg --trust-model always --yes -a $recipient -e|sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
 	if [ "$content"x == ""x ];then
 		content="加密失败，可能是您的GPG公钥有误，请确认在CMDB中填写了正确的GPG公钥"
 	fi
