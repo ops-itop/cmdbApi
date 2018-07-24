@@ -162,3 +162,24 @@ function checkIP($ip_para)
 	}
 	return(false);
 }
+
+/**
+ * 命令行选项 exclude
+ */
+function excludeFilter()
+{
+	$params = getopt('', array('exclude:'));
+	$exclude = '';
+	if(array_key_exists('exclude', $params)) {
+		$exclude = $params['exclude'];
+	}
+	$exclude_arr = array();
+	$exclude = explode('#', $exclude);
+	foreach($exclude as $val) {
+		$t = explode('=', $val);
+		if(count($t) != 2) continue;
+		$exclude_arr[$t[0]] = explode(',', $t[1]);
+	}
+	return($exclude_arr);
+}
+
