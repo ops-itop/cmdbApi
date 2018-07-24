@@ -42,10 +42,13 @@ function pam_on()
 {
 	cat >$SCRIPT <<EOF
 #!/bin/bash
+export PATH=\$PATH:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 # 这里用who am i，su到其他用户时，who am i显示的用户不变，whoami会变，切换到一些系统用户,比如nginx, zabbix时会受限
 u=\`who am i|awk '{print \$1}'\`
 # 当使用scp或ssh ip 'command' 时，who am i 和who及 w命令均不显示用户，此时需要使用whoami来判断用户
 [ "\$u"x == ""x ] && u=\`whoami\`
+# 获取不到用户名时放弃
+[ "\$u"x == ""x ] && u="root"
 grep -w "^\$u$" $CONF &>/dev/null && r=1 || r=0
 if [ \$r -eq 0 ];then
 	echo -e "\033[47;5;31m\n     用户 \$u 没有权限登录当前机器\033[0m"
