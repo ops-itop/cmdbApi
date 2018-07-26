@@ -84,7 +84,7 @@ EOF
 
 function run() {
 	dt=`date "+%Y-%m-%d %H:%M:%S"`
-	pid=`echo $line |cut -f1 -d','`
+	pid=`echo $line |cut -f1 -d','|cut -f2 -d'-'`
 	email=`echo $line |cut -f2 -d','`
 	username=`echo $email |cut -f1 -d'@'`
 	gpgkey=`echo $line |cut -f3 -d','`
