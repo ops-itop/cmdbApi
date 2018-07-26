@@ -8,6 +8,9 @@
 # Created Time: 2018-07-09 21:30:31
 ############################
 
+# crontab需要设置PATH
+export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
 basedir=$(cd `dirname $0`; pwd)
 cd $basedir
 source ./conf.sh

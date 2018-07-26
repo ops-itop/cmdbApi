@@ -29,7 +29,7 @@ if($_GET['action'] == "query") {
 		foreach($data as $k => $v) {
 			$gpgKey = preg_replace('/^Comment:.*\r\n/m','',$v['fields']['gpg_pub_key']);
 			$gpgKey = str_replace("\r\n","#", $gpgKey);
-			$ret[] = $v['key'] . "," . $v['fields']['email'] . "," . $gpgKey;
+			$ret[] = "QUERYOK-" . $v['key'] . "," . $v['fields']['email'] . "," . $gpgKey;
 		}
 		die(implode("\n", $ret));
 	}

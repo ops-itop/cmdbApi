@@ -102,6 +102,8 @@ function run() {
 }
 
 queryResetQueue
+grep "QUERYOK" $TmpQueue &>/dev/null && r=1 || r=0
+[ $r -eq 0 ] && echo "QUERY ERROR" && exit 1
 while read line;do
 	run "$line"
 done <$TmpQueue
