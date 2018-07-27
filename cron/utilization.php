@@ -85,6 +85,48 @@ function zabbixAllHostGet()
 	return(json_decode(json_encode(zabbixHostGet("")), true));
 }
 
+// cpu使用率分段统计
+function cpuUtil($idle, &$metrics) {
+	// 分段区间 1,2,5,10,20,30,40,50,60,70,80,90,100
+	$range = [0,1,2,5,10,15,20,30,40,50,60,70,80,90];
+	$util = 100 - $idle;
+	foreach($range as $v) {
+		$s = (string)$v;
+		$k = 'cpu_util' . $s;
+		if(!array_key_exists($k, $metrics)) $metrics[$k] = 0;
+	}
+
+	switch($util) {
+	case $util < 1:
+		$k = 'cpu_util0'; $metrics[$k]++; break;
+	case $util < 2:
+		$k = 'cpu_util1'; $metrics[$k]++; break;
+	case $util < 5:
+		$k = 'cpu_util2'; $metrics[$k]++; break;
+	case $util < 10:
+		$k = 'cpu_util5'; $metrics[$k]++; break;
+	case $util < 15:
+		$k = 'cpu_util10'; $metrics[$k]++; break;
+	case $util < 20:
+		$k = 'cpu_util15'; $metrics[$k]++; break;
+	case $util >= 20 && $util <= 100:
+		$k = floor($util/10) * 10;
+		$k = 'cpu_util' . (string)$k; $metrics[$k]++;break;
+	default:
+		break;
+	}
+
+}
+
+// cpu使用率分段统计 - 百分比
+function cpuUtilPercent(&$metrics) {
+	foreach($metrics as $k => $v) {
+		if(preg_match('/^cpu_util/', $k)) {
+			$key = 'percent_' . $k;
+			$metrics[$key] = $v/$metrics['real_count'];
+		}
+	}
+}
 
 function calMetrics() {
 	$metrics = ['cpu_all'=>0,'cpu_avail'=>0,'mem_all'=>0,'mem_avail'=>0,'disk_all'=>0,'disk_avail'=>0];
@@ -102,6 +144,7 @@ function calMetrics() {
 	$metrics['real_count'] = count($calHosts);
 	$metrics['error_count'] = 0;
 	$metrics['error_log'] = [];
+
 	foreach($calHosts as $k => $v) {
 		foreach($v as $key => $val) {
 			if(!$val) {
@@ -113,11 +156,14 @@ function calMetrics() {
 		}
 		$metrics['cpu_all'] += $v['tag'];
 		$metrics['cpu_avail'] += $v['tag'] * $v['alias'] / 100;
+		// cpu利用率分段统计
+		cpuUtil($v['alias'], $metrics);
 		$metrics['mem_all'] += str_replace(" GB", "", $v['notes']) * 1024 * 1024 * 1024;
 		$metrics['mem_avail'] += $v['chassis'];
 		$metrics['disk_all'] += $v['hardware'];
 		$metrics['disk_avail'] += $v['hardware'] - $v['hardware'] * $v['software'];
 	}
+	cpuUtilPercent($metrics);
 	return $metrics;
 }
 
