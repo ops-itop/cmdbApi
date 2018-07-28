@@ -80,7 +80,7 @@ function getUser($ip, $serverinfo)
 }
 
 /*
- * 定义返回格式为:  allowed users|sudo users
+ * 定义返回格式为:  ACCOUNTS_OK#allowed users|sudo users
  * allowed users及sudo users以逗号分隔
  */
 
@@ -93,6 +93,7 @@ function main($ip)
 	}
 
 	$users = getUser($ip, $serverinfo);
+	$users = "ACCOUNTS_OK#" . $users;
 	return($users);
 }
 

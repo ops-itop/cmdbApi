@@ -26,6 +26,7 @@ fi
 # Permission Deny : 无权限查询，直接退出
 # ERROR: 错误，直接退出
 # NOT FOUND: 未找到 直接退出
+# ACCOUNTS_OK: 正常
 
 # 非root退出
 if [ `id -u` -ne 0 ];then
@@ -83,13 +84,15 @@ EOF
 
 userlist=`curl --connect-timeout 3 -s "$CMDBAPI?ip=$IPADDR" |head -n 1`
 
-users=`echo "$userlist" |cut -f1 -d'|'`
-sudoers=`echo "$userlist" |cut -f2 -d'|'`
+tag=`echo "$userlist" |cut -f1 -d'#'`
+users=`echo "$userlist" |awk -F'#' '{print $NF}' |cut -f1 -d'|'`
+sudoers=`echo "$userlist" |awk -F'#' '{print $NF}' |cut -f2 -d'|'`
 
 echo $userlist
-case $users in
+case $tag in
+	"ACCOUNTS_OK") pam_on "$users" "$sudoers";;
 	"ERROR") exit 1;;
 	"NOT FOUND") exit 1;;
 	"Permission denied") exit 1;;
-	*) pam_on "$users" "$sudoers";;
+	*) exit 1;;
 esac
