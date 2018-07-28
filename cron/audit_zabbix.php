@@ -12,13 +12,31 @@
  **/
 
 require dirname(__FILE__).'/../etc/config.php';
+require dirname(__FILE__).'/../composer/vendor/autoload.php';
 require dirname(__FILE__).'/../composer/vendor/confirm-it-solutions/php-zabbix-api/build/ZabbixApi.class.php';
 
 define('ZBXURL', $config['zabbix']['url']);
 define('ZBXUSER', $config['zabbix']['user']);
 define('ZBXPWD', $config['zabbix']['password']);
 
+define('ITOPURL', $config['itop']['url']);
+define('ITOPUSER', $config['itop']['user']);
+define('ITOPPWD', $config['itop']['password']);
+
+$iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
+
+
+// iTop 中查询所有已下线服务器列表
+function getObsoleteServer()
+{
+	global $iTopAPI;
+	$oql = "SELECT Server WHERE status='obsolete'";
+	$output_fields = "status,name,hostname";
+	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
+	$data = json_decode($data, true);
+	return $data['objects'];
+}
 
 // zabbix查询host接口
 function zabbixHostGet($name)
@@ -39,14 +57,31 @@ function zabbixAllHostGet()
 	return(json_decode(json_encode(zabbixHostGet("")), true));
 }
 
-// sn审计
+// 删除已下线机器
+function deleteObsolete() {
+	global $zbxAPI;
+	$ret = [];
+	$obsolete = getObsoleteServer();
+	foreach($obsolete as $k => $v) {
+		$host = zabbixHostGet($v['fields']['name']);
+		$host = json_decode(json_encode($host), true);
+		if($host) {
+			$hostid = $host[0]['hostid'];
+			$ret[$v['fields']['hostname']] = $zbxAPI->hostDelete([$hostid]);
+		} else {
+			$ret[$v['fields']['hostname']] = "not exists";
+		}
+	}
+	return $ret;
+}
+
+// 删除冲突项
 function main()
 {
 	global $zbxAPI;
 	$conflict = array();
 	// 先一次性取出zabbix中所有的host，并组装成key为sn的数组
 	$zbxServers = zabbixAllHostGet();
-	print_r("zabbix count: " . count($zbxServers) . "\n");
 	$zbxAll = array();
 	foreach($zbxServers as $server)
 	{
@@ -67,6 +102,7 @@ function main()
 	}
 
 	$ret = array();
+	$ret['zabbix-count'] = count($zbxServers);
 	foreach($conflict as $host)
 	{
 		$param = array($host);
@@ -81,4 +117,7 @@ function main()
 	return($ret);
 }
 
-die(json_encode(main()));
+$ret = [];
+$ret['obsolete'] = deleteObsolete();
+$ret['conflict'] = main();
+die(json_encode($ret));
