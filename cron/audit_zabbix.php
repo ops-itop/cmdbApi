@@ -84,7 +84,7 @@ function main()
 		$hostid = $server['hostid'];
 
 		if(in_array($sn, $obsolete)) {
-			$obsoleteids = $hostid;
+			$obsoleteids[] = $hostid;
 		}
 
 		if(array_key_exists($sn, $zbxAll))
