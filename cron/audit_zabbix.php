@@ -35,7 +35,13 @@ function getObsoleteServer()
 	$output_fields = "status,name,hostname";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
-	return $data['objects'];
+	$sn = array();
+	if($data['objects']) {
+		foreach($data['objects'] as $v) {
+			$sn[] = $v['fields']['name'];
+		}
+	}
+	return $sn;
 }
 
 // zabbix查询host接口
@@ -57,29 +63,13 @@ function zabbixAllHostGet()
 	return(json_decode(json_encode(zabbixHostGet("")), true));
 }
 
-// 删除已下线机器
-function deleteObsolete() {
-	global $zbxAPI;
-	$ret = [];
-	$obsolete = getObsoleteServer();
-	foreach($obsolete as $k => $v) {
-		$host = zabbixHostGet($v['fields']['name']);
-		$host = json_decode(json_encode($host), true);
-		if($host) {
-			$hostid = $host[0]['hostid'];
-			$ret[$v['fields']['hostname']] = $zbxAPI->hostDelete([$hostid]);
-		} else {
-			$ret[$v['fields']['hostname']] = "not exists";
-		}
-	}
-	return $ret;
-}
-
-// 删除冲突项
+// 删除冲突项 及 已下线机器
 function main()
 {
 	global $zbxAPI;
 	$conflict = array();
+	$obsoleteids = array();
+	$obsolete = getObsoleteServer();
 	// 先一次性取出zabbix中所有的host，并组装成key为sn的数组
 	$zbxServers = zabbixAllHostGet();
 	$zbxAll = array();
@@ -92,6 +82,11 @@ function main()
 			continue;
 		}
 		$hostid = $server['hostid'];
+
+		if(in_array($sn, $obsolete)) {
+			$obsoleteids = $hostid;
+		}
+
 		if(array_key_exists($sn, $zbxAll))
 		{
 			array_push($conflict, $hostid, $zbxAll[$sn]['hostid']);
@@ -108,16 +103,18 @@ function main()
 		$param = array($host);
 		try{
 			$ret[$host] = $zbxAPI->hostDelete($param);
-		}
-		catch(Exceptioin $e)
-		{
+		} catch(Exceptioin $e) {
 			$ret[$host] = "failed";
 		}
+	}
+	try {
+		if($obsoleteids) {
+			$ret['obsolete'] = $zbxAPI->hostDelete($obsoleteids);
+		}
+	} catch(Exceptioin $e) {
+		$ret['obsolete'] = "failed";
 	}
 	return($ret);
 }
 
-$ret = [];
-$ret['obsolete'] = deleteObsolete();
-$ret['conflict'] = main();
-die(json_encode($ret));
+die(json_encode(main()));
