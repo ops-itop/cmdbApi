@@ -21,9 +21,8 @@ define('ITOPURL', $config['itop']['url']);
 define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
-// influxdb要求Field数据类型一致，设置一个很小的数，保证是float类型
-define("TINY", 0.0000000001);
-define("SMALL", 0.1);
+// influxdb要求Field数据类型一致，通过bcscale确保保留2为小数
+bcscale(2);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
@@ -127,19 +126,13 @@ function cpuUtilPercent(&$metrics) {
 	foreach($metrics as $k => $v) {
 		if(preg_match('/^cpu_util/', $k)) {
 			$key = 'percent_' . $k;
-			$metrics[$key] = $v/$metrics['real_count'];
-			if($metrics[$key] == 0) {
-				$metrics[$key] += TINY;
-			}
-			if($metrics[$key] == 1) {
-				$metrics[$key] -= TINY;
-			}
+			$metrics[$key] = bcdiv($v,$metrics['real_count']);
 		}
 	}
 }
 
 function calMetrics() {
-	$metrics = ['cpu_all'=>SMALL,'cpu_avail'=>SMALL,'mem_all'=>SMALL,'mem_avail'=>SMALL,'disk_all'=>SMALL,'disk_avail'=>SMALL];
+	$metrics = ['cpu_all'=>0,'cpu_avail'=>0,'mem_all'=>0,'mem_avail'=>0,'disk_all'=>0,'disk_avail'=>0];
 	$cmdbHosts = getAllServer();
 	$zabbixHosts = zabbixAllHostGet();
 
@@ -164,14 +157,14 @@ function calMetrics() {
 				continue 2;
 			}
 		}
-		$metrics['cpu_all'] += $v['tag'];
-		$metrics['cpu_avail'] += $v['tag'] * $v['alias'] / 100;
+		$metrics['cpu_all'] = bcadd($metrics['cpu_all'],$v['tag']);
+		$metrics['cpu_avail'] = bcadd($metrics['cpu_avail'],$v['tag'] * $v['alias'] / 100);
 		// cpu利用率分段统计
 		cpuUtil($v['alias'], $metrics);
-		$metrics['mem_all'] += str_replace(" GB", "", $v['notes']) * 1024 * 1024 * 1024;
-		$metrics['mem_avail'] += $v['chassis'];
-		$metrics['disk_all'] += $v['hardware'];
-		$metrics['disk_avail'] += $v['hardware'] - $v['hardware'] * $v['software'];
+		$metrics['mem_all'] = bcadd($metrics['mem_all'],str_replace(" GB", "", $v['notes']) * 1024 * 1024 * 1024);
+		$metrics['mem_avail'] = bcadd($metrics['mem_avail'],$v['chassis']);
+		$metrics['disk_all'] = bcadd($metrics['disk_all'],$v['hardware']);
+		$metrics['disk_avail'] = bcadd($metrics['disk_avail'],$v['hardware'] - $v['hardware'] * $v['software']);
 	}
 	cpuUtilPercent($metrics);
 	return $metrics;
