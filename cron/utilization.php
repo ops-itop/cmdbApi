@@ -126,7 +126,7 @@ function cpuUtilPercent(&$metrics) {
 	foreach($metrics as $k => $v) {
 		if(preg_match('/^cpu_util/', $k)) {
 			$key = 'percent_' . $k;
-			$metrics[$key] = bcdiv($v,$metrics['real_count']);
+			$metrics[$key] = $v/$metrics['real_count'];
 		}
 	}
 }
