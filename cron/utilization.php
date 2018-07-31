@@ -170,7 +170,14 @@ function calMetrics() {
 	return $metrics;
 }
 
+function toFloat($metrics) {
+	foreach($metrics as $k => $v) {
+		$metrics[$k] = (double)$v;
+	}
+	return $metrics;
+}
 $metrics = calMetrics();
+$metrics = toFloat($metrics);
 $client = new InfluxDB\Client($config['influx']['host'], $config['influx']['port']);
 $database = $client->selectDB($config['influx']['utildb']);
 $error_log = $metrics['error_log'];
@@ -185,4 +192,4 @@ if($PRODUCT) {
 print_r("influxdb write status: " . $result . "\n");
 print_r("error_log: \n" . implode("\n", $error_log) . "\n");
 print_r("metrics: \n");
-print_r($metrics);
+var_dump($points);
