@@ -22,7 +22,8 @@ define('ITOPUSER', $config['itop']['user']);
 define('ITOPPWD', $config['itop']['password']);
 
 // influxdb要求Field数据类型一致，设置一个很小的数，保证是float类型
-define("TINY", 0.00000000001);
+define("TINY", 0.0000000001);
+define("SMALL", 0.1);
 
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
@@ -138,7 +139,7 @@ function cpuUtilPercent(&$metrics) {
 }
 
 function calMetrics() {
-	$metrics = ['cpu_all'=>TINY,'cpu_avail'=>TINY,'mem_all'=>TINY,'mem_avail'=>TINY,'disk_all'=>TINY,'disk_avail'=>TINY];
+	$metrics = ['cpu_all'=>SMALL,'cpu_avail'=>SMALL,'mem_all'=>SMALL,'mem_avail'=>SMALL,'disk_all'=>SMALL,'disk_avail'=>SMALL];
 	$cmdbHosts = getAllServer();
 	$zabbixHosts = zabbixAllHostGet();
 
