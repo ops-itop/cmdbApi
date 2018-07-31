@@ -124,6 +124,12 @@ function cpuUtilPercent(&$metrics) {
 		if(preg_match('/^cpu_util/', $k)) {
 			$key = 'percent_' . $k;
 			$metrics[$key] = $v/$metrics['real_count'];
+			if($metrics[$key] == 0) {
+				$metrics[$key] = "0.0";
+			}
+			if($metrics[$key] == 1) {
+				$metrics[$key] = "1.0";
+			}
 		}
 	}
 }
