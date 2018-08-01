@@ -177,11 +177,12 @@ function toFloat($metrics) {
 	return $metrics;
 }
 $metrics = calMetrics();
+$error_log = $metrics['error_log'];
+unset($metrics['error_log']);
+
 $metrics = toFloat($metrics);
 $client = new InfluxDB\Client($config['influx']['host'], $config['influx']['port']);
 $database = $client->selectDB($config['influx']['utildb']);
-$error_log = $metrics['error_log'];
-unset($metrics['error_log']);
 $points = [];
 $time = time();
 $points[] = new InfluxDB\Point($config['influx']['utilmeasur'], null, [], $metrics, $time);
