@@ -9,6 +9,55 @@
 
 require 'common/init.php';
 
+// 主机名前缀为 k8s-node, k8s-router
+function labels($hostpre = ['k8s-node%', 'k8s-router-%']) {
+	global $iTopAPI;
+	// labels
+	$cluster = "default";
+	$role = "default";
+	$cpu = "default";
+	$location = "default";
+	
+	$query = "SELECT Server WHERE ";
+	$conditions = [];
+	foreach($hostpre as $k => $v) {
+		$conditions[] = "hostname LIKE '" . $v . "'";
+	}
+	$conditions = implode(' OR ', $conditions);
+	$query .= $conditions;
+	$data = $iTopAPI->coreGet("Server", $query, "*");
+	$data = json_decode($data, true)['objects'];
+	//die(json_encode($data));
+	$kubectl = [];
+	foreach($data as $key => $val) {
+		$cmd = "kubectl label ";
+		if(count($val['fields']['ip_list']) == 0) {
+			continue;
+		}
+		foreach($val['fields']['ip_list'] as $ip) {
+			if($ip['type'] == 'int') {
+				$node = $ip['ipaddress'];
+				$cmd .= $node;
+				break;
+			}
+		}
+		$hostname = explode(".", $val['fields']['hostname']);
+		$hostname = explode("-", $hostname[0]);
+		$role = $hostname[1];
+		$cluster = 'default';
+		if(count($hostname) == 3) {
+			$cluster = $hostname[2];
+		}
+		if($val['fields']['cpu'] != "") {
+			$cpu = $val['fields']['cpu'];
+		}
+		$location = $val['fields']['location_id'];
+		$cmd .= " cluster=$cluster role=$role cpu=$cpu location=$location";
+		$kubectl[] = $cmd . ' --overwrite';
+	}
+	return implode("\n", $kubectl);
+}
+
 $dev = $config['k8s']['dev'];
 
 if(isset($_GET['app']) && isset($_GET['cluster']) && $_GET['cluster'] != '' && $_GET['app'] !='') {
@@ -31,6 +80,8 @@ if(isset($_GET['app']) && isset($_GET['cluster']) && $_GET['cluster'] != '' && $
 		die(json_encode($out));
 	}
 	die("already send auto update task for $cluster.$app");
+} elseif (isset($_GET['label'])) {
+	die(labels());
 } else {
 	die("args error: cluster and app required");	
 }
