@@ -30,7 +30,7 @@ function labels($hostpre = ['k8s-node%', 'k8s-router-%']) {
 	//die(json_encode($data));
 	$kubectl = [];
 	foreach($data as $key => $val) {
-		$cmd = "kubectl label ";
+		$cmd = "kubectl label nodes ";
 		if(count($val['fields']['ip_list']) == 0) {
 			continue;
 		}
