@@ -27,6 +27,8 @@ if(!$PULLPOLICY) {
 if($AUTOUPDATE) {
 	$AUTOUPDATE = (string)time();
 	$PULLPOLICY = "Always";
+} else {
+	$AUTOUPDATE = "false";
 }
 
 $script = explode("/", $argv[0]);
