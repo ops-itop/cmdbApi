@@ -55,7 +55,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/doctrine/inflector/5527a48b7313d15261292c149e55e26eae771b0a.zip",
+            "url": "https://api.github.com/repos/doctrine/inflector/zipball/5527a48b7313d15261292c149e55e26eae771b0a",
             "reference": "5527a48b7313d15261292c149e55e26eae771b0a",
             "shasum": ""
         },
@@ -347,7 +347,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/illuminate/contracts/322ec80498b3bf85bc4025d028e130a9b50242b9.zip",
+            "url": "https://api.github.com/repos/illuminate/contracts/zipball/322ec80498b3bf85bc4025d028e130a9b50242b9",
             "reference": "322ec80498b3bf85bc4025d028e130a9b50242b9",
             "shasum": ""
         },
@@ -393,7 +393,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/illuminate/support/cc8d6f5cef3a901de6bb7d1b362102a6db001085.zip",
+            "url": "https://api.github.com/repos/illuminate/support/zipball/cc8d6f5cef3a901de6bb7d1b362102a6db001085",
             "reference": "cc8d6f5cef3a901de6bb7d1b362102a6db001085",
             "shasum": ""
         },
@@ -514,12 +514,12 @@
         "source": {
             "type": "git",
             "url": "https://github.com/maclof/kubernetes-client.git",
-            "reference": "0e34e6b069a195fe40b8803094e27a67c945e855"
+            "reference": "b53f864a9f1a585c4d0365580004f439aa3a80fa"
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/maclof/kubernetes-client/0e34e6b069a195fe40b8803094e27a67c945e855.zip",
-            "reference": "0e34e6b069a195fe40b8803094e27a67c945e855",
+            "url": "https://api.github.com/repos/maclof/kubernetes-client/zipball/b53f864a9f1a585c4d0365580004f439aa3a80fa",
+            "reference": "b53f864a9f1a585c4d0365580004f439aa3a80fa",
             "shasum": ""
         },
         "require": {
@@ -532,7 +532,7 @@
             "phpunit/phpunit": "4.8.36",
             "satooshi/php-coveralls": "1.0.1"
         },
-        "time": "2018-04-19T21:30:35+00:00",
+        "time": "2018-05-09T21:53:52+00:00",
         "type": "library",
         "installation-source": "source",
         "autoload": {
@@ -571,7 +571,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/briannesbitt/Carbon/e3d9014279133a3cccc01f6a691322a2d5a6a87b.zip",
+            "url": "https://api.github.com/repos/briannesbitt/Carbon/zipball/e3d9014279133a3cccc01f6a691322a2d5a6a87b",
             "reference": "e3d9014279133a3cccc01f6a691322a2d5a6a87b",
             "shasum": ""
         },
@@ -621,7 +621,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/php-fig/container/b7ce3b176482dbbc1245ebf52b181af44c2cf55f.zip",
+            "url": "https://api.github.com/repos/php-fig/container/zipball/b7ce3b176482dbbc1245ebf52b181af44c2cf55f",
             "reference": "b7ce3b176482dbbc1245ebf52b181af44c2cf55f",
             "shasum": ""
         },
@@ -724,7 +724,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/php-fig/simple-cache/408d5eafb83c57f6365a3ca330ff23aa4a5fa39b.zip",
+            "url": "https://api.github.com/repos/php-fig/simple-cache/zipball/408d5eafb83c57f6365a3ca330ff23aa4a5fa39b",
             "reference": "408d5eafb83c57f6365a3ca330ff23aa4a5fa39b",
             "shasum": ""
         },
@@ -836,7 +836,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/symfony/polyfill-mbstring/78be803ce01e55d3491c1397cf1c64beb9c1b63b.zip",
+            "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/78be803ce01e55d3491c1397cf1c64beb9c1b63b",
             "reference": "78be803ce01e55d3491c1397cf1c64beb9c1b63b",
             "shasum": ""
         },
@@ -897,7 +897,7 @@
         },
         "dist": {
             "type": "zip",
-            "url": "https://files.phpcomposer.com/files/symfony/translation/e20a9b7f9f62cb33a11638b345c248e7d510c938.zip",
+            "url": "https://api.github.com/repos/symfony/translation/zipball/e20a9b7f9f62cb33a11638b345c248e7d510c938",
             "reference": "e20a9b7f9f62cb33a11638b345c248e7d510c938",
             "shasum": ""
         },
