@@ -64,6 +64,13 @@ class iTopKubernetes {
 		return $this->$attr;
 	}
 
+	// 挂载宿主机时区
+	private function _mounttz($mount) {
+		$mount['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
+		$mount['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
+		return $mount;
+	}
+
 	private function _mountsecret() {
 		$ret = ['volumeMounts' => [], 'volumes' => []];
 		if(!$this->data['secret_id']) { return $ret; }
@@ -158,6 +165,8 @@ class iTopKubernetes {
 	function Deployment() {
 		global $PULLPOLICY;
 		$mount = $this->_mountsecret();
+		// 挂载宿主机时区
+		$mount = $this->_mounttz($mount);
 
 		$this->deployment = [
 			'metadata' => [
