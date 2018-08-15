@@ -79,24 +79,26 @@ class iTopKubernetes {
 		$ret['volumeMounts'][] = ['name'=>$name, 'mountPath'=>'/run/secrets/appconfig', 'readOnly'=>true];
 		$ret['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>SECRET_PRE . $this->data['secret_name']]];
 		return $ret;
+	}
 
-		/*
+	// 同时将secret写入环境变量
+	private function _secret2env($env) {
 		$secret = new iTopSecret();
 		$secret->__init_by_id($this->data['secret_id']);
-		$data = $secret->Secret($this->data['k8snamespace_name']);
-		foreach($data['data'] as $k => $v) {
+		$data = $secret->Secret();
+		$ns = $this->data['k8snamespace_name'];
+		foreach($data[$ns]['data'] as $k => $v) {
 			$env[] = [
 				'name' => $k,
 				'valueFrom' =>[
 					'secretKeyRef' => [
-						'name' => $data['metadata']['name'],
+						'name' => $data[$ns]['metadata']['name'],
 						'key' => $k
 					]
 				]
 			];
 		}
 		return $env;
-		 */
 	}
 
 	private function _getports($objtype) {
@@ -168,6 +170,9 @@ class iTopKubernetes {
 		// 挂载宿主机时区
 		$mount = $this->_mounttz($mount);
 
+		$env = $this->_getenv();
+		$env = $this->_secret2env($env);
+
 		$this->deployment = [
 			'metadata' => [
 				'name' => $this->app,
@@ -194,7 +199,7 @@ class iTopKubernetes {
 							[
 								'name' => $this->app,
 								'image' => $this->data['image'],
-								'env' => $this->_getenv(),
+								'env' => $env,
 								'ports' => $this->_getports('deployment'),
 								'volumeMounts' => $mount['volumeMounts'],
 								'imagePullPolicy' => $PULLPOLICY,
@@ -301,6 +306,7 @@ class iTopKubernetes {
 		$this->Ingress();
 
 		$deployment = new Deployment($this->get('deployment'));
+		//print_r($deployment);die();
 		$service = new Service($this->get('service'));
 		$ingress = new Ingress($this->get('ingress'));
 		
@@ -342,6 +348,7 @@ class iTopSecret {
 	function __init_by_id($secret_id) {
 		$this->secret_id = $secret_id;
 		$this->data = GetData($secret_id, "Secret");
+		$this->name = SECRET_PRE . $this->data['name'];
 	}
 
 	function _getNamespace() {
