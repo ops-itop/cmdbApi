@@ -35,6 +35,7 @@ $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
 
 define("SECRET_PRE", "app-secret-");
+define("APPCONFIG_PATH", "/run/secrets/appconfig");
 
 $k8sClient = new Client([
 	'master'      => $config['kubernetes']['master'],
@@ -76,7 +77,7 @@ class iTopKubernetes {
 		if(!$this->data['secret_id']) { return $ret; }
 		
 		$name = $this->app . "-appconfig";
-		$ret['volumeMounts'][] = ['name'=>$name, 'mountPath'=>'/run/secrets/appconfig', 'readOnly'=>true];
+		$ret['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
 		$ret['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>SECRET_PRE . $this->data['secret_name']]];
 		return $ret;
 	}
@@ -134,6 +135,7 @@ class iTopKubernetes {
 			'MY_POD_IP' => 'status.podIP',
 		];
 		$envstr = [
+			'APP_CONFIG_PATH' => APPCONFIG_PATH,
 			'APP_NAME' => $this->app,
 			'APP_DOMAIN' => $this->domain . "/," . $this->_list2str($this->data['ingress_list'], 'friendlyname'),
 			'APP_NAMESPACE' => $this->data['k8snamespace_name'],
