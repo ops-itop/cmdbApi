@@ -18,6 +18,7 @@ use Maclof\Kubernetes\Models\Secret;
 
 $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
+$BATCH = getenv("BATCH"); // 脚本模式
 $PULLPOLICY = getenv("PULLPOLICY");
 $AUTOUPDATE = getenv("AUTOUPDATE");
 if(!$PULLPOLICY) {
@@ -25,10 +26,7 @@ if(!$PULLPOLICY) {
 }
 
 if($AUTOUPDATE) {
-	$AUTOUPDATE = (string)time();
 	$PULLPOLICY = "Always";
-} else {
-	$AUTOUPDATE = "false";
 }
 
 $script = explode("/", $argv[0]);
@@ -50,12 +48,21 @@ class iTopKubernetes {
 	private $deployment;
 	private $ingress;
 	private $service;
+	private $secrets;
 	private $domain;
+	private $errno = 0;
+	private $result;
+	private $mount;
+	private $env;
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
 		$this->data = $data;
 		$this->_getdomain();
+		$this->result = ['errno' => $this->errno, 'msg' => []];
+		$this->mount = ['volumeMounts' => [], 'volumes' => []];
+		$this->secrets = [];
+		$this->env = [];
 	}
 
 	function get($attr) {
@@ -66,30 +73,32 @@ class iTopKubernetes {
 	}
 
 	// 挂载宿主机时区
-	private function _mounttz($mount) {
-		$mount['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
-		$mount['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
-		return $mount;
+	private function _mounttz() {
+		$this->mount['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
+		$this->mount['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
 	}
 
 	private function _mountsecret() {
-		$ret = ['volumeMounts' => [], 'volumes' => []];
-		if(!$this->data['secret_id']) { return $ret; }
-		
-		$name = $this->app . "-appconfig";
-		$ret['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
-		$ret['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>SECRET_PRE . $this->data['secret_name']]];
-		return $ret;
+		foreach($this->secrets as $key => $val) {
+			$secretName = $val['metadata']['name'];
+			$name = $secretName . "-appconfig";
+			$this->mount['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
+			$this->mount['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>$secretName]];
+		}
 	}
 
 	// 同时将secret写入环境变量
-	private function _secret2env($env) {
+	private function _secret2env() {
 		$secret = new iTopSecret();
-		$secret->__init_by_id($this->data['secret_id']);
+		$secret->__init_by_data($this->data);
 		$data = $secret->Secret();
+		$secretResult = json_decode($secret->run('Secret'), true);
+		$this->result['errno'] = $secretResult['errno'];
+
 		$ns = $this->data['k8snamespace_name'];
+		$this->secrets[] = $data[$ns];
 		foreach($data[$ns]['data'] as $k => $v) {
-			$env[] = [
+			$this->env[] = [
 				'name' => $k,
 				'valueFrom' =>[
 					'secretKeyRef' => [
@@ -99,14 +108,35 @@ class iTopKubernetes {
 				]
 			];
 		}
-		return $env;
+		// 提供CreateEvent中使用的格式
+		if($secretResult['errno'] == 0) {
+			$this->result['msg'][] = ["kind"=>"Secret", "metadata"=>["name" => $data[$ns]['metadata']['name']]];
+		}
+	}
+
+	private function _getimage() {
+		$tag = $this->data['image_tag'];
+		if($tag == "") {
+			$tag = "latest";
+		}
+		return $this->data['image'] . ":" . $tag;
+	}
+
+	private function _getresources() {
+		$res = ['requests'=>[],'limits'=>[]];
+		$mem = $this->data['mem_request'] . "Mi";
+		$res['requests']['cpu'] = $this->data['cpu_request'];
+		$res['requests']['memory'] = $mem;
+		$res['limits']['cpu'] = $this->data['cpu_limit'];
+		$res['limits']['memory'] = $mem;
+		return $res;
 	}
 
 	private function _getports($objtype) {
 		$ports = explode(",", $this->data['containerport']);
 		$port_list = ['deployment'=>[], 'service'=>[]];
 		foreach($ports as $k => $v) {
-			$port_list['deployment'][] = ['containerPort' => (int) $v];	
+			$port_list['deployment'][] = ['containerPort' => (int) $v];
 			$port_list['service'][] = ['port' => (int) $v, 'targetPort'=>(int) $v];
 		}
 		return $port_list[$objtype];
@@ -126,14 +156,13 @@ class iTopKubernetes {
 	}
 
 	private function _getenv() {
-		global $AUTOUPDATE;
-		$env = [];
 		$envpod = [
 			'MY_NODE_NAME' => 'spec.nodeName',
 			'MY_POD_NAME' => 'metadata.name',
 			'MY_POD_NAMESPACE' => 'metadata.namespace',
 			'MY_POD_IP' => 'status.podIP',
 		];
+		// 设置UPDATEDTIME，否则无修改时重部，pod可能不更新
 		$envstr = [
 			'APP_CONFIG_PATH' => APPCONFIG_PATH,
 			'APP_NAME' => $this->app,
@@ -143,11 +172,11 @@ class iTopKubernetes {
 			'APP_DESCRIPTION' => $this->data['description'],
 			'APP_ONLINEDATE' => $this->data['move2production'],
 			'APP_CONTACTS' => $this->_list2str($this->data['person_list'], 'person_name'),
-			'AUTOUPDATE' =>  $AUTOUPDATE,
+			'UPDATEDTIME' =>  (string)time(),
 		];
 
 		foreach($envpod as $k => $v) {
-			$env[] = [
+			$this->env[] = [
 				'name' => $k,
 				'valueFrom' => [
 					'fieldRef' => [
@@ -158,22 +187,21 @@ class iTopKubernetes {
 		}
 
 		foreach($envstr as $k => $v) {
-			$env[] = [
+			$this->env[] = [
 				'name' => $k,
 				'value' => $v
 			];
 		}
-		return $env;
 	}
 
 	function Deployment() {
 		global $PULLPOLICY;
-		$mount = $this->_mountsecret();
 		// 挂载宿主机时区
-		$mount = $this->_mounttz($mount);
+		$this->_mounttz();
 
-		$env = $this->_getenv();
-		$env = $this->_secret2env($env);
+		$this->_getenv();
+		$this->_secret2env();
+		$this->_mountsecret();
 
 		$this->deployment = [
 			'metadata' => [
@@ -200,18 +228,19 @@ class iTopKubernetes {
 						'containers' => [
 							[
 								'name' => $this->app,
-								'image' => $this->data['image'],
-								'env' => $env,
+								'image' => $this->_getimage(),
+								'resources' => $this->_getresources(),
+								'env' => $this->env,
 								'ports' => $this->_getports('deployment'),
-								'volumeMounts' => $mount['volumeMounts'],
+								'volumeMounts' => $this->mount['volumeMounts'],
 								'imagePullPolicy' => $PULLPOLICY,
 							]
 						],
-						'volumes' => $mount['volumes'],
+						'volumes' => $this->mount['volumes'],
 					],
 				]
 			]
-		];	
+		];
 	}
 
 	function Service() {
@@ -231,7 +260,7 @@ class iTopKubernetes {
 			]
 		];
 	}
-	
+
 	function Ingress() {
 		$rules = [];
 		$rules[] = [
@@ -281,15 +310,27 @@ class iTopKubernetes {
 		];
 	}
 
+	function _checkResult($result) {
+		foreach($result as $v) {
+			if($v['kind'] == "Status") {
+				$this->result['errno'] = 100;
+			}
+			$this->result['msg'][] = $v;
+		}
+	}
+
 	function run($finalclass, $del=false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-		
+
 		$result = [];
 		if($del && $finalclass == "Deployment") {
 			$result[] = $k8sClient->deployments()->deleteByName($this->app);
 			$result[] = $k8sClient->services()->deleteByName($this->app);
 			$result[] = $k8sClient->ingresses()->deleteByName($this->app);
+			foreach($this->secrets as $v) {
+				$result[] = $k8sClient->secret()->deleteByName($v['metadata']['name']);
+			}
 
 			// replicaSet 和 Pod 需要单独删除
 			$rs = $k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
@@ -300,7 +341,9 @@ class iTopKubernetes {
 			foreach($pod as $k => $v) {
 				$result[] = $k8sClient->pods()->delete($v);
 			}
-			return json_encode($result);
+
+			$this->_checkResult($result);
+			return json_encode($this->result);
 		}
 
 		$this->Deployment();
@@ -311,7 +354,7 @@ class iTopKubernetes {
 		//print_r($deployment);die();
 		$service = new Service($this->get('service'));
 		$ingress = new Ingress($this->get('ingress'));
-		
+
 		if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
 			$result[] = $k8sClient->ingresses()->update($ingress);
 		} else {
@@ -332,25 +375,52 @@ class iTopKubernetes {
 		} else {
 			$result[] = $k8sClient->services()->create($service);
 		}
-		
-		return json_encode($result);
+
+		$this->_checkResult($result);
+		return json_encode($this->result);
 	}
 }
 
 class iTopSecret {
 	private $secret_id;
 	private $name;
-	private $data;
+	private $data;      // secret数据
+	private $isYaml = false;
+	private $ns;
+	private $errno = 100;
+	private $result;
 
 	function __init_by_data($data) {
-		$this->data = $data;
-		$this->name = SECRET_PRE . $data['name'];
+		$this->ns = [];
+		// 处理Deployment中的Secret
+
+		if($data['finalclass'] == "Deployment") {
+			$this->data = $data['secret'];
+			$this->name = SECRET_PRE . "private-" . $data['applicationsolution_name'];
+			$this->ns[] = $data['k8snamespace_name'];
+		} else {
+			$this->data = $data['data'];
+			$this->name = SECRET_PRE . $data['name'];
+			$this->ns = $this->_getNamespace();
+		}
+
+		$this->_check();
+		$this->result = ['errno' => $this->errno, 'msg' => []];
 	}
 
 	function __init_by_id($secret_id) {
 		$this->secret_id = $secret_id;
-		$this->data = GetData($secret_id, "Secret");
-		$this->name = SECRET_PRE . $this->data['name'];
+		$data = GetData($secret_id, "Secret");
+		$this->__init_by_data($data);
+	}
+
+	// 检查是否是yaml格式
+	function _check() {
+		$parsed = yaml_parse($this->data);
+		if(is_array($parsed)) {
+			$this->data = $parsed;
+			$this->isYaml = true;
+		}
 	}
 
 	function _getNamespace() {
@@ -366,18 +436,12 @@ class iTopSecret {
 	}
 
 	function Secret() {
-		$secret_data_str = explode("\n", preg_replace("/\r\n/m", "\n", $this->data['data']));
 		$secret_data = [];
-		foreach($secret_data_str as $k => $v) {
-			$item = explode(":", $v);
-			$key = $item[0];
-			array_shift($item);
-			$value = implode(":", $item);
-			$secret_data[$key] = base64_encode($value);
+		foreach($this->data as $k => $v) {
+			$secret_data[$k] = base64_encode($v);
 		}
 		$secrets = [];
-		$ns_list = $this->_getNamespace();
-		foreach($ns_list as $k => $v) {
+		foreach($this->ns as $v) {
 			$secrets[$v] = [
 				'metadata' => [
 					'name' => $this->name,
@@ -392,6 +456,7 @@ class iTopSecret {
 
 	function deallog($r, $k) {
 		if($r['kind'] == "Secret") {
+			$this->result['errno'] = 0;   // kind为Secret时没有错误发生
 			return ["kind"=>"Secret", "message"=>"update Secret $k." . $r['metadata']['name'] . " successful"];
 		}
 		return $r;
@@ -399,8 +464,12 @@ class iTopSecret {
 
 	function run($finalclass, $del=false) {
 		global $k8sClient;
+		if(!$this->isYaml) {
+			$this->result['msg'][] = ["kind"=>"Status", "message"=>"secret is not valid yaml"];
+			return json_encode($this->result);
+		}
+
 		$secrets = $this->Secret();
-		$result = [];
 		foreach($secrets as $k => $v) {
 			$secret = new Secret($v);
 			$k8sClient->setNamespace($k);
@@ -411,9 +480,9 @@ class iTopSecret {
 			} else {
 				$r = $k8sClient->secrets()->create($secret);
 			}
-			$result[] = $this->deallog($r, $k);
+			$this->result['msg'][] = $this->deallog($r, $k);
 		}
-		return json_encode($result);
+		return json_encode($this->result);
 	}
 }
 
@@ -429,14 +498,15 @@ function CreateEvent($log) {
 	global $ID;
 	$d = json_decode($log, true);
 	$description = [];
-	foreach($d as $k => $v) {
+	foreach($d['msg'] as $k => $v) {
 		if($v['kind'] == "Status") {
-			$description[] = $v['message'];
+			$description[] = $v['message']['message'];
 		} else {
 			$description[] = "Update " . $v['kind'] . " " . $v['metadata']['name'] . " successful";
 		}
 	}
 
+	//print_r($description);die();
 	$message = implode(",", $description);
 
 	$fields = array(
@@ -467,12 +537,36 @@ function GetData($ID, $sClass="Kubernetes") {
 	return $ret;
 }
 
+// 更新部署状态到iTop
+function UpdateKubestatus($ret, $class, $id) {
+	$ret = json_decode($ret, true);
+	if($ret['errno'] == 0) {
+		$stat = "SUCC";
+		$bgcolor = "#59db8f";
+	} else {
+		$stat = "WARN";
+		$bgcolor = "#ff0000";
+	}
+	$kubestatus = '<p><strong><span style="color:#ffffff"><span style="background-color:' . $bgcolor . '"> ' . $stat . ' </span></span></strong></p>';
+	$flag_kubestatus = time();
+
+	global $iTopAPI;
+	return $iTopAPI->coreUpdate($class, $id, array('kubestatus'=>$kubestatus, 'flag_kubestatus'=>$flag_kubestatus));
+}
+
 $data = GetData($ID);
 
 // 是否执行删除
 $del = false;
 if($data['status'] == 'stock') {
 	$del = true;
+}
+
+// 检查flag_kubestatus标识，如果大于0，说明是本脚本更新过的，直接退出，防止无限循环
+// 如果是脚本模式，忽略 flag_kubestatus 标识
+if($data['flag_kubestatus'] > 0 && !$BATCH) {
+	file_put_contents($log, $config['datetime'] . " - $ID - flag_kubestatus set, exit;\n", FILE_APPEND);
+	die();
 }
 
 $finalclass = $data['finalclass'];
@@ -489,17 +583,22 @@ if($finalclass == "Deployment") {
 	$itopK8s = new iTopKubernetes($data);
 }
 
+// $ret 格式 :
+// ['errno'=>0, 'msg'=>[]]
 try {
 	$ret = $itopK8s->run($finalclass, $del);
 } catch(Exception $e) {
-	$ret = [];
-	$ret[] = json_decode($e->getMessage());
+	$message = json_decode($e->getMessage());
+	if(!$message) $message = $e->getMessage();
+	$ret = ['errno'=>100,'msg'=>[['kind'=>'Status', 'message'=>$message]]];
 	$ret = json_encode($ret);
 }
 
 $itopEvent = CreateEvent($ret);
-
+$updateStatus = UpdateKubestatus($ret, $finalclass, $ID);
 if($DEBUG) { print_r($ret); }
+
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
 file_put_contents($log, $config['datetime'] . " - $ID - $itopEvent\n", FILE_APPEND);
+file_put_contents($log, $config['datetime'] . " - $ID - $updateStatus\n", FILE_APPEND);
 ?>
