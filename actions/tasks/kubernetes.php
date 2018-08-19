@@ -92,11 +92,16 @@ class iTopKubernetes {
 		$secret = new iTopSecret();
 		$secret->__init_by_data($this->data);
 		$data = $secret->Secret();
+		if(!$data) return;
 		$secretResult = json_decode($secret->run('Secret'), true);
 		$this->result['errno'] = $secretResult['errno'];
 
 		$ns = $this->data['k8snamespace_name'];
-		$this->secrets[] = $data[$ns];
+
+		// 只有存在有效数据的secret可以被挂载
+		if($data[$ns]['data']) {
+			$this->secrets[] = $data[$ns];
+		}
 		foreach($data[$ns]['data'] as $k => $v) {
 			$this->env[] = [
 				'name' => $k,
@@ -111,6 +116,8 @@ class iTopKubernetes {
 		// 提供CreateEvent中使用的格式
 		if($secretResult['errno'] == 0) {
 			$this->result['msg'][] = ["kind"=>"Secret", "metadata"=>["name" => $data[$ns]['metadata']['name']]];
+		} else {
+			$this->result['msg'][] = $secretResult['msg'][0];
 		}
 	}
 
@@ -416,10 +423,17 @@ class iTopSecret {
 
 	// 检查是否是yaml格式
 	function _check() {
+		if(!$this->data) {
+			$this->data = [];
+			$this->isYaml = true;  // secret为空时执行删除逻辑， 不判断是否是yaml
+			return;
+		}
 		$parsed = yaml_parse($this->data);
 		if(is_array($parsed)) {
 			$this->data = $parsed;
 			$this->isYaml = true;
+		} else {
+			$this->data = [];
 		}
 	}
 
@@ -464,18 +478,23 @@ class iTopSecret {
 
 	function run($finalclass, $del=false) {
 		global $k8sClient;
-		if(!$this->isYaml) {
-			$this->result['msg'][] = ["kind"=>"Status", "message"=>"secret is not valid yaml"];
-			return json_encode($this->result);
+		if(!$this->data) {
+			$del = true;
 		}
 
+		if(!$this->isYaml) {
+			$this->result['msg'][] = ["kind"=>"Status", "message"=>['message'=>"ERR: secret is not valid yaml"]];
+			return json_encode($this->result);
+		}
 		$secrets = $this->Secret();
 		foreach($secrets as $k => $v) {
 			$secret = new Secret($v);
 			$k8sClient->setNamespace($k);
+			$exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
+			$r = ['kind'=>"Secret", "metadata"=>["name"=>$this->name]];
 			if($del) {
-				$r = $k8sClient->secrets()->deleteByName($this->name);
-			} elseif($k8sClient->secrets()->exists($secret->getMetadata('name'))) {
+				if($exists) $r = $k8sClient->secrets()->deleteByName($this->name);
+			} elseif($exists) {
 				$r = $k8sClient->secrets()->update($secret);
 			} else {
 				$r = $k8sClient->secrets()->create($secret);
