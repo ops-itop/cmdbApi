@@ -75,7 +75,7 @@ if(isset($_GET['app']) && isset($_GET['cluster']) && $_GET['cluster'] != '' && $
 	}
 	$deploy_id = reset($deploy)['key'];
 	$shell = dirname(__FILE__) . "/../actions/tasks/kubernetes.php";
-	exec("AUTOUPDATE=1 PULLPOLICY=Always ID=$deploy_id php $shell", $out, $res);
+	exec("BATCH=1 AUTOUPDATE=1 PULLPOLICY=Always ID=$deploy_id php $shell", $out, $res);
 	if($res!=0) {
 		die(json_encode($out));
 	}
