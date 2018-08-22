@@ -11,26 +11,23 @@ require 'common/init.php';
 
 // dashboard proxy使用， 返回某个联系人所有部署列表
 function dashboard($person) {
-	$pre = '<div class="applist"><h1>Hi, ' . $person . ', these are your deployments:</h1>';
-	$end = '</div>';
+	$default = json_encode([]);
 	if(!$person) {
-		return $pre . $end;
+		return $default;
 	}
 
 	global $iTopAPI;
-	$query = "SELECT Deployment AS d JOIN ApplicationSolution AS app ON d.applicationsolution_id=app.id JOIN lnkContactToApplicationSolution AS l ON l.applicationsolution_id=app.id JOIN Person AS p ON l.contact_id=p.id WHERE p.login='" . $person . "'";
+	$query = "SELECT ApplicationSolution AS app JOIN lnkContactToApplicationSolution AS l ON l.applicationsolution_id=app.id JOIN Person AS p ON l.contact_id=p.id WHERE p.login='" . $person . "'";
 
-	$data = $iTopAPI->coreGet("Deployment", $query, "k8snamespace_name,applicationsolution_name");
+	$data = $iTopAPI->coreGet("ApplicationSolution", $query, "name");
 	$data = json_decode($data, true)['objects'];
-	if(!$data) return $pre . $end;
+	if(!$data) return $default;
 
-	$content = "";
+	$apps = [];
 	foreach($data as $key => $val) {
-		$ns = $val['fields']['k8snamespace_name'];
-		$app = $val['fields']['applicationsolution_name'];
-		$content .= '<p><a href="#!/deployment/' . $ns . '/' .$app . '?namespace=' . $ns .'">' . $ns . '.' . $app. '</a></p>';
+		$apps[] = $val['fields']['name'];
 	}
-	return($pre . $content . $end);
+	return(json_encode($apps));
 }
 
 // 主机名前缀为 k8s-node, k8s-router
