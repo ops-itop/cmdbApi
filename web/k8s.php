@@ -91,7 +91,7 @@ if(isset($_GET['app']) && isset($_GET['cluster']) && $_GET['cluster'] != '' && $
 		die("$cluster auto update not allowd");
 	}
 
-	$oql = "SELECT Deployment WHERE applicationsolution_name='$app' AND k8snamespace_name='$cluster' AND status='production'";
+	$oql = "SELECT Deployment WHERE applicationsolution_name='$app' AND k8snamespace_name='$cluster' AND status!='stock'";
 	$deploy = $iTopAPI->coreGet("Deployment", $oql);
 	$deploy = json_decode($deploy, true)['objects'];
 	if(!$deploy) {
