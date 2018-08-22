@@ -9,6 +9,30 @@
 
 require 'common/init.php';
 
+// dashboard proxy使用， 返回某个联系人所有部署列表
+function dashboard($person) {
+	$pre = '<div class="applist"><h1>Hi, ' . $person . ', these are your deployments:</h1>';
+	$end = '</div>';
+	if(!$person) {
+		return $pre . $end;
+	}
+
+	global $iTopAPI;
+	$query = "SELECT Deployment AS d JOIN ApplicationSolution AS app ON d.applicationsolution_id=app.id JOIN lnkContactToApplicationSolution AS l ON l.applicationsolution_id=app.id JOIN Person AS p ON l.contact_id=p.id WHERE p.login='" . $person . "'";
+
+	$data = $iTopAPI->coreGet("Deployment", $query, "k8snamespace_name,applicationsolution_name");
+	$data = json_decode($data, true)['objects'];
+	if(!$data) return $pre . $end;
+
+	$content = "";
+	foreach($data as $key => $val) {
+		$ns = $val['fields']['k8snamespace_name'];
+		$app = $val['fields']['applicationsolution_name'];
+		$content .= '<p><a href="#!/deployment/' . $ns . '/' .$app . '?namespace=' . $ns .'">' . $ns . '.' . $app. '</a></p>';
+	}
+	return($pre . $content . $end);
+}
+
 // 主机名前缀为 k8s-node, k8s-router
 function labels($hostpre = ['k8s-node%', 'k8s-router-%']) {
 	global $iTopAPI;
@@ -82,7 +106,9 @@ if(isset($_GET['app']) && isset($_GET['cluster']) && $_GET['cluster'] != '' && $
 	die("already send auto update task for $cluster.$app");
 } elseif (isset($_GET['label'])) {
 	die(labels());
-} else {
+} elseif (isset($_GET['dash'])) {
+	die(dashboard($_GET['dash']));
+}else {
 	die("args error: cluster and app required");	
 }
 
