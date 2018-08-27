@@ -176,7 +176,7 @@ class iTopKubernetes {
 			'APP_DOMAIN' => $this->domain . "/," . $this->_list2str($this->data['ingress_list'], 'friendlyname'),
 			'APP_NAMESPACE' => $this->data['k8snamespace_name'],
 			'APP_ORG' => $this->data['organization_name'],
-			'APP_DESCRIPTION' => $this->data['description'],
+			'APP_DESCRIPTION' => str_replace(array("\r", "\n", "\r\n"), " ", $this->data['description']),
 			'APP_ONLINEDATE' => $this->data['move2production'],
 			'APP_CONTACTS' => $this->_list2str($this->data['person_list'], 'person_name'),
 			'UPDATEDTIME' =>  (string)time(),
@@ -203,6 +203,9 @@ class iTopKubernetes {
 
 	function Deployment() {
 		global $PULLPOLICY;
+		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
+			$PULLPOLICY = "Always";
+		}
 		// 挂载宿主机时区
 		$this->_mounttz();
 
