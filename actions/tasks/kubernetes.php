@@ -570,7 +570,7 @@ function UpdateKubestatus($ret, $class, $id) {
 		$bgcolor = "#ff0000";
 	}
 	$kubestatus = '<p><strong><span style="color:#ffffff"><span style="background-color:' . $bgcolor . '"> ' . $stat . ' </span></span></strong></p>';
-	$flag_kubestatus = time();
+	$flag_kubestatus = "AUTOUPDATE";
 
 	global $iTopAPI;
 	return $iTopAPI->coreUpdate($class, $id, array('kubestatus'=>$kubestatus, 'flag_kubestatus'=>$flag_kubestatus));
@@ -586,7 +586,7 @@ if($data['status'] == 'stock') {
 
 // 检查flag_kubestatus标识，如果大于0，说明是本脚本更新过的，直接退出，防止无限循环
 // 如果是脚本模式，忽略 flag_kubestatus 标识
-if($data['flag_kubestatus'] > 0 && !$BATCH) {
+if($data['flag_kubestatus'] != "MANUAL" && !$BATCH) {
 	file_put_contents($log, $config['datetime'] . " - $ID - flag_kubestatus set, exit;\n", FILE_APPEND);
 	die();
 }
