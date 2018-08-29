@@ -201,9 +201,27 @@ class iTopKubernetes {
 		}
 	}
 
+	private function _defaultaffinity() {
+		$aff = ["nodeAffinity"=>["preferredDuringSchedulingIgnoredDuringExecution"=>[]]];
+		$aff["nodeAffinity"]["preferredDuringSchedulingIgnoredDuringExecution"][] = [
+			"weight" => 1,
+			"preference" => [
+				"mathExpressions" => [
+					"key" => "role",
+					"operator" => "In",
+					"values" => ["node", "router"]
+				]
+			]
+		];
+		return $aff;
+	}
+
 	private function _getaffinity() {
 		$affinity = new iTopAffinity($this->data['affinity_list']);
 		$data = $affinity->run();
+		if(count($data) == 0) {
+			$data = $this->_defaultaffinity();
+		}
 		//print_r($data);die();
 		return $data;
 	}

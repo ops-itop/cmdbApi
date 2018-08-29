@@ -30,8 +30,8 @@ function dashboard($person) {
 	return(json_encode($apps));
 }
 
-// 主机名前缀为 k8s-node, k8s-router
-function labels($hostpre = ['k8s-node%', 'k8s-router-%']) {
+// 主机名前缀为 k8s-node, k8s-router, k8s-master
+function labels($hostpre = ['k8s-node%', 'k8s-router-%', 'k8s-master%']) {
 	global $iTopAPI;
 	// labels
 	$cluster = "default";
