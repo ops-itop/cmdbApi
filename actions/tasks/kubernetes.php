@@ -206,7 +206,7 @@ class iTopKubernetes {
 		$aff["nodeAffinity"]["preferredDuringSchedulingIgnoredDuringExecution"][] = [
 			"weight" => 1,
 			"preference" => [
-				"mathExpressions" => [
+				"matchExpressions" => [
 					"key" => "role",
 					"operator" => "In",
 					"values" => ["node", "router"]
