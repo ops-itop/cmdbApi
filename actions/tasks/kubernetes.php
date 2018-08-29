@@ -201,6 +201,13 @@ class iTopKubernetes {
 		}
 	}
 
+	private function _getaffinity() {
+		$affinity = new iTopAffinity($this->data['affinity_list']);
+		$data = $affinity->run();
+		//print_r($data);die();
+		return $data;
+	}
+
 	function Deployment() {
 		global $PULLPOLICY;
 		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
@@ -235,6 +242,7 @@ class iTopKubernetes {
 						],
 					],
 					'spec' => [
+						'affinity' => $this->_getaffinity(),
 						'containers' => [
 							[
 								'name' => $this->app,
@@ -505,6 +513,95 @@ class iTopSecret {
 			$this->result['msg'][] = $this->deallog($r, $k);
 		}
 		return json_encode($this->result);
+	}
+}
+
+class iTopAffinity {
+	private $data;
+	private $affinity;
+
+	function __construct($data) {
+		$this->data = $data;
+		/*
+		$this->affinitytype = $data['k8saffinity_affinitytype'];
+		$this->requiretype = $data['k8saffinity_requiretype'];
+		$this->labeltype = $data['k8saffinity_labeltype'];
+		$this->expressions = $data['k8saffinity_expressions'];
+		$this->topologykey = $data['k8saffinity_topologykey'];
+		*/
+		$this->affinity = [];
+	}
+
+	private function _checkKey($key) {
+		if(!array_key_exists($key, $this->affinity)) {
+			$this->affinity[$key] = [];
+		}
+	}
+
+	private function _checkKey2($key, $key2) {
+		if(!array_key_exists($key, $this->affinity[$key2])) {
+			$this->affinity[$key2][$key] = [];
+		}
+	}
+
+	private function _getExp($exp) {
+		if(!$exp) {
+			return [];
+		}
+		$parsed = yaml_parse($exp);
+		if(is_array($parsed)) {
+			return $parsed;
+		} else {
+			return [];
+		}
+	}
+
+	function _getnodeaffinity($val) {
+		$this->_checkKey("nodeAffinity");
+		$tp = "required";
+		if($val['k8saffinity_requiretype'] == "required") {
+			$key = "requiredDuringSchedulingIgnoredDuringExecution";
+		} else {
+			$key = "preferredDuringSchedulingIgnoredDuringExecution";
+			$tp = "preferred";
+		}
+
+		$this->_checkKey2($key, "nodeAffinity");
+		if($tp == "required") {
+			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']] = ["matchExpressions" => []];
+			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->_getExp($val['k8saffinity_expressions']);
+		}
+	}
+
+	function _getpodaffinity($val) {
+		$this->_checkKey("podAffinity");
+	}
+
+	function _getpodantiaffinity($val) {
+		$this->_checkKey("podAntiAffinity");
+	}
+
+	function _delarraykey() {
+		if(array_key_exists("nodeAffinity", $this->affinity)) {
+			if(array_key_exists("requiredDuringSchedulingIgnoredDuringExecution", $this->affinity['nodeAffinity'])) {
+				$this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'] = array_values($this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms']);
+			}
+		}
+	}
+
+	function run() {
+		foreach($this->data as $val) {
+			$affinitytype = $val['k8saffinity_affinitytype'];
+			if(in_array($affinitytype, ["nodeaffinity", "nodeantiaffinity"])) {
+				$this->_getnodeaffinity($val);
+			} elseif($affinitytype == "podaffinity") {
+				$this->_getpodaffinity($val);
+			} else {
+				$this->_getpodantiaffinity($val);
+			}
+		}
+		$this->_delarraykey();
+		return $this->affinity;
 	}
 }
 
