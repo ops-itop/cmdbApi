@@ -709,6 +709,7 @@ if($data['flag_kubestatus'] != "MANUAL" && !$BATCH) {
 		if($data['flag_kubestatus'] == "MANUAL") {
 			break;
 		}
+		sleep(1);
 	}
 	if($data['flag_kubestatus'] != "MANUAL") {
 		file_put_contents($log, $config['datetime'] . " - $ID - flag_kubestatus set, exit;\n", FILE_APPEND);
