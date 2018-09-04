@@ -563,10 +563,18 @@ class iTopAffinity {
 		}
 	}
 
-	private function _getExp($exp) {
+	private function _getExp($exp, $values) {
 		if(!$exp) {
 			return [];
 		}
+		$val = explode(",",$values);
+
+		foreach($val as $k => $v) {
+			$val[$k] = "- " . $v;
+		}
+		$val = implode("\n", $val);
+
+		$exp = str_replace("__VALUES__", "\n$val", $exp);
 		$parsed = yaml_parse($exp);
 		if(is_array($parsed)) {
 			return $parsed;
@@ -588,7 +596,7 @@ class iTopAffinity {
 		$this->_checkKey2($key, "nodeAffinity");
 		if($tp == "required") {
 			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']] = ["matchExpressions" => []];
-			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->_getExp($val['k8saffinity_expressions']);
+			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->_getExp($val['k8saffinity_expressions'], $val['values']);
 		}
 	}
 
