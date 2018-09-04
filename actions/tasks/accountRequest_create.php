@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?
+<?php
 /**
  * Usage:(废弃) 用于账号申请工单的创建任务，包含创建lnkUserToServer, 指派工单。action参数 ID=$this->ref$
  * File Name: accoutRequest_create.php

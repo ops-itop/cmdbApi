@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?
+<?php
 /**
  * Usage: 用于更新FunctionalCI(Server, MiddleWare,Domain等contacts属性取下游App的contacts)的contacts属性。
  * 触发器作用于lnkContactToApplicationSolution， action参数: ID=>$this->applicationsolution_id$

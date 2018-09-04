@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?
+<?php
 /**
  * Usage: 更新报警规则接口缓存(api/alert.php). 接口参数为type和value
  * lnkFunctionalCIToAlertRule, AlertRule更新时都需要更新缓存

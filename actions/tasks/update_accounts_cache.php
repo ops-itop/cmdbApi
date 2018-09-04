@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?
+<?php
 /**
  * Usage: 更新账号接口缓存(api/accounts.php). 参数为需要获取服务器ID
  * lnkUserToServer, lnkContactToFunctionalCI及Server变更都需要更新缓存

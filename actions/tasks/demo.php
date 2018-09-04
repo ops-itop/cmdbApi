@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?
+<?php
 /**
  * Usage:
  * File Name: demo.php
