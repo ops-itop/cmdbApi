@@ -31,6 +31,7 @@ if($AUTOUPDATE) {
 
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
+$hostPathPre = $config['kubernetes']['hostpathpre'];
 
 define("SECRET_PRE", "app-secret-");
 define("APPCONFIG_PATH", "/run/secrets/appconfig");
@@ -60,9 +61,12 @@ class iTopKubernetes {
 		$this->data = $data;
 		$this->_getdomain();
 		$this->result = ['errno' => $this->errno, 'msg' => []];
-		$this->mount = ['volumeMounts' => [], 'volumes' => []];
 		$this->secrets = [];
 		$this->env = [];
+
+		// 挂载volumes
+		$volumes = new iTopVolume($this->data['volume_list'], $this->app);
+		$this->mount = $volumes->run();
 	}
 
 	function get($attr) {
@@ -541,13 +545,6 @@ class iTopAffinity {
 
 	function __construct($data) {
 		$this->data = $data;
-		/*
-		$this->affinitytype = $data['k8saffinity_affinitytype'];
-		$this->requiretype = $data['k8saffinity_requiretype'];
-		$this->labeltype = $data['k8saffinity_labeltype'];
-		$this->expressions = $data['k8saffinity_expressions'];
-		$this->topologykey = $data['k8saffinity_topologykey'];
-		*/
 		$this->affinity = [];
 	}
 
@@ -629,6 +626,36 @@ class iTopAffinity {
 		}
 		$this->_delarraykey();
 		return $this->affinity;
+	}
+}
+
+class iTopVolume {
+	private $data;
+	private $app;
+	private $volumes;
+
+	function __construct($data, $app) {
+		$this->data = $data;
+		$this->app = $app;
+		$this->volumes = ['volumeMounts' => [], 'volumes' => []];
+	}
+
+	function _gethostpath($key, $val) {
+		global $hostPathPre;
+		$name = "hostpath-" . $key . "-" . $this->app;
+		$path = rtrim($hostPathPre, "/") . "/" . $name;
+		$this->volumes['volumeMounts'][] = ['name'=>$name, 'mountPath'=>$val['mountpath']];
+		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
+	}
+
+	function run() {
+		foreach($this->data as $key => $val) {
+			$volumetype = $val['k8svolume_type'];
+			if($volumetype == "hostpath") {
+				$this->_gethostpath($key, $val);
+			}
+		}
+		return $this->volumes;
 	}
 }
 

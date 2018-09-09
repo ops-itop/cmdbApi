@@ -36,3 +36,4 @@ $config['kubernetes']['master'] = "https://xxx.com";
 $config['kubernetes']['ca_cert'] = "/tmp/ca.pem";
 $config['kubernetes']['client_cert'] = "/tmp/client_cert.pem";
 $config['kubernetes']['client_key'] = "/tmp/client_key.pem";
+$config['kubernetes']['hostpathpre'] = "/data/k8svolume";
