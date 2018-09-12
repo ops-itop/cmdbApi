@@ -744,8 +744,9 @@ if($data['status'] == 'stock') {
 
 // 检查flag_kubestatus标识，如果大于0，说明是本脚本更新过的，直接退出，防止无限循环
 // 如果是脚本模式，忽略 flag_kubestatus 标识
+// 如果是下线操作($del=true)，忽略 flag_kubestatus 标识
 // 因为开启opcache的原因，需要多试几次才能获取正确的值
-if($data['flag_kubestatus'] != "MANUAL" && !$BATCH) {
+if($data['flag_kubestatus'] != "MANUAL" && !$BATCH && !$del) {
 	for($i=0;$i<3;$i++) {
 		$data = GetData($ID);
 		if($data['flag_kubestatus'] == "MANUAL") {
