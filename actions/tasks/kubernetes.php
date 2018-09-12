@@ -786,7 +786,16 @@ try {
 }
 
 $itopEvent = CreateEvent($ret);
-$updateStatus = UpdateKubestatus($ret, $finalclass, $ID);
+
+// 下线操作不写kubestatus
+// 因为下线操作不能更新flag_kubestatus，当del=true时，不检查flag_kubestatus
+// 但这样又会造成循环更新，因此如果是del，就不更新iTop了，防止无限循环
+if($del) {
+	$updateStatus = "action stock";
+} else {
+	$updateStatus = UpdateKubestatus($ret, $finalclass, $ID);
+}
+
 if($DEBUG) { print_r($ret); }
 
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
