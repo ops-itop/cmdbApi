@@ -21,4 +21,3 @@ CMDB_RESETPWDAPI="http://cmdb.cn/api/resetpwd.php"
 USER_PP="/tmp/user.pp"
 MAIL_API="http://mail.cn/"
 CC_LIST="xxx@xx.com,xxx@xxx.com"
-LOCAL_USER="B257957F"   # 用于签名的私钥ID

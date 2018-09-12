@@ -33,7 +33,7 @@ function sendMail() {
 	
 	content="您登陆服务器的用户名为  $user；密码为  $password\r\n\r\n正常情况下1小时内生效，如超过一小时还未生效请联系运维\r\n\r\n如果着急使用，请联系服务器管理员执行puppet同步命令: puppet agent --config /etc/puppet/letv.conf --onetime --verbose --no-daemonize"
 	# cron中使用gpg加密需要设置--homedir
-	content=`echo -e "$content" |gpg --homedir /root/.gnupg --trust-model always --yes --local-user $LOCAL_USER -a -r $keyId --sign -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
+	content=`echo -e "$content" |gpg --homedir /root/.gnupg --trust-model always --yes -a -r $keyId -e |sed ':a;N;s/\n/<br>/g;ba'|sed 's/\+/%2B/g'`
 
 	if [ "$content"x == ""x ];then
 		content="加密失败，可能是您的GPG公钥有误，请确认在CMDB中填写了正确的GPG公钥"
