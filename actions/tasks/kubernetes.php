@@ -55,6 +55,7 @@ class iTopKubernetes {
 	private $result;
 	private $mount;
 	private $env;
+	private $hostNetwork = false;
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
@@ -67,6 +68,11 @@ class iTopKubernetes {
 		// 挂载volumes
 		$volumes = new iTopVolume($this->data['volume_list'], $this->app);
 		$this->mount = $volumes->run();
+
+		// hostNetwork
+		if($this->data['hostnetwork'] == "true") {
+			$this->hostNetwork = true;
+		}
 	}
 
 	function get($attr) {
@@ -265,6 +271,7 @@ class iTopKubernetes {
 						],
 					],
 					'spec' => [
+						'hostNetwork' => $this->hostNetwork,
 						'affinity' => $this->_getaffinity(),
 						'containers' => [
 							[
