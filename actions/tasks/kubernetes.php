@@ -56,6 +56,8 @@ class iTopKubernetes {
 	private $mount;
 	private $env;
 	private $hostNetwork = false;
+	private $livenessProbe;
+	private $readinessProbe;
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
@@ -73,6 +75,11 @@ class iTopKubernetes {
 		if($this->data['hostnetwork'] == "true") {
 			$this->hostNetwork = true;
 		}
+
+		// Probe
+		$probe = new iTopProbe($this->data);
+		$this->livenessProbe = $probe->livenessProbe();
+		$this->readinessProbe = $probe->readinessProbe();
 	}
 
 	function get($attr) {
@@ -282,6 +289,8 @@ class iTopKubernetes {
 								'ports' => $this->_getports('deployment'),
 								'volumeMounts' => $this->mount['volumeMounts'],
 								'imagePullPolicy' => $PULLPOLICY,
+								'readinessProbe' => $this->readinessProbe,
+								'livenessProbe' => $this->livenessProbe,
 							]
 						],
 						'volumes' => $this->mount['volumes'],
@@ -399,7 +408,7 @@ class iTopKubernetes {
 		$this->Ingress();
 
 		$deployment = new Deployment($this->get('deployment'));
-		//print_r($deployment);die();
+		//var_dump($deployment);die();
 		$service = new Service($this->get('service'));
 		$ingress = new Ingress($this->get('ingress'));
 
@@ -663,6 +672,39 @@ class iTopVolume {
 			}
 		}
 		return $this->volumes;
+	}
+}
+
+class iTopProbe {
+	private $data;
+	private $port;
+
+	function __construct($data) {
+		$this->data = $data;
+		$ports = explode(",", $data['containerport']);
+		$this->port = (int)$ports[0];
+	}
+
+	function readinessProbe() {
+		if(array_key_exists("probe_list", $this->data)) {
+			foreach($this->data['probe_list'] as $val) {
+				if($val['probe_type'] == "readinessProbe") {
+
+				}
+			}
+		}
+		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>10,"periodSeconds" => 5];
+	}
+
+	function livenessProbe() {
+		if(array_key_exists("probe_list", $this->data)) {
+			foreach($this->data['probe_list'] as $val) {
+				if($val['probe_type'] == "readinessProbe") {
+
+				}
+			}
+		}
+		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>15,"periodSeconds" => 3];
 	}
 }
 
