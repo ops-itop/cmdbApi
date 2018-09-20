@@ -61,7 +61,7 @@ function zabbixHostGet($name)
 	global $zbxAPI;
 	$param = array(
 		"output" => array("host","inventory"),
-		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os"),
+		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os", "type", "url_a", "url_b", "url_c", "host_networks"),
 		"searchInventory" => array("asset_tag" => $name)
 	);
 	$data = $zbxAPI->hostGet($param);
@@ -88,6 +88,10 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'ram' => $cmdbdata['fields']['ram'],
 		'osfamily_name' => $cmdbdata['fields']['osfamily_name'],
 		'osversion_name' => $cmdbdata['fields']['osversion_name'],
+		'pdnum' => $cmdbdata['fields']['pdnum'],
+		'pdsize' => $cmdbdata['fields']['pdsize'],
+		'raid' => $cmdbdata['fields']['raid'],
+		'kernel' => $cmdbdata['fields']['kernel'],
 	);
 
 	$zbxServer = array(
@@ -99,6 +103,10 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'ram' => $zbxdata['inventory']['notes'],
 		'osfamily_name' => reset($os),
 		'osversion_name' => end($os),
+		'pdnum' => $zbxdata['inventory']['url_a'],
+		'pdsize' => $zbxdata['inventory']['url_b'],
+		'raid' => $zbxdata['inventory']['url_c'],
+		'kernel' => $zbxdata['inventory']['type'],
 	);
 	
 	$key = array("name" => $cmdbServer['name']);
