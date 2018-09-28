@@ -310,6 +310,13 @@ function updateIP($cmdbdata) {
 	return $ret;
 }
 
+function importIP($ipcsv) {
+	$ipcsv = str_replace("int","内网", $ipcsv);
+	$ipcsv = str_replace("ext","外网", $ipcsv);
+	$ipcsv = str_replace("oob","管理卡", $ipcsv);
+	return $ipcsv;
+}
+
 function main()
 {
 	$cmdbServer = getAllServer();
@@ -327,6 +334,9 @@ function main()
 	$surplus_vip = implode("\n",$ipret['surplus_vip']);
 	$lack_ip = implode("\n", $ipret['lack_ip']);
 	$lack_vip = implode("\n",$ipret['lack_vip']);
+
+	$lack_ip = importIP($lack_ip);
+	$lack_vip = importIP($lack_vip);
 
 	$ret_cmdb = audit_cmdb($cmdbServer, $zbxServers);
 	$csv_auditcmdb = $csvHelper->arrayToCSV($ret_cmdb['missing']);
