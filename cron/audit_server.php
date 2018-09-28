@@ -226,15 +226,87 @@ function audit_cmdb($cmdbdata, $zbxServers)
 	return $ret;
 }
 
+function audit_ip($cmdbdata, $zbxServers) {
+	$ips = [];
+	$vips = [];
+
+	foreach($cmdbdata as $server) {
+		$sn = $server['fields']['sn'];
+		foreach($server['fields']['ip_list'] as $ip) {
+			$item = $sn . "," . $ip['ipaddress'] . "," . $ip['type'];
+			$ips[] = $item;
+		}
+		foreach($server['fields']['vip_list'] as $vip) {
+			$item = $sn . "," . $vip['ipaddress'] . "," . $vip['type'];
+			$vips[] = $item;
+		}
+	}
+
+	$zbxip = [];
+	$zbxvip = [];
+	foreach($zbxServers as $server) {
+		$sn = $server['inventory']['asset_tag'];
+		$allip = explode(",",$server['inventory']['host_networks']);
+		foreach($allip as $ip) {
+			$tmp = explode("-", $ip);
+			if($tmp[0] == "vip") {
+				$t = "ext";
+				if(preg_match("/^10\./",$tmp[1])) {
+					$t = "int";
+				}
+				$item = $sn . "," . $tmp[1] . "," . $t;
+				$zbxvip[] = $item;
+			} else {
+				$item = $sn . "," . $tmp[1] . "," . $tmp[0];
+				$zbxip[] = $item;
+			}
+		}
+	}
+
+	$ret = ['surplus_ip'=>[], 'lack_ip'=>[], 'surplus_vip'=>[], 'lack_vip'=>[]];
+	foreach($ips as $ip) {
+		if(!in_array($ip, $zbxip)) {
+			$ret['surplus_ip'][] = $ip;
+		}
+	}
+
+	foreach($vips as $vip) {
+		if(!in_array($vip, $zbxvip)) {
+			$ret['surplus_vip'][] = $vip;
+		}
+	}
+
+	foreach($zbxip as $ip) {
+		if(!in_array($ip,  $ips)) {
+			$ret['lack_ip'][] = $ip;
+		}
+	}
+
+	foreach($zbxvip as $vip) {
+		if(!in_array($vip, $vips)) {
+			$ret['lack_vip'][] = $vip;
+		}
+	}
+	return $ret;
+}
+
 function main()
 {
 	$cmdbServer = getAllServer();
 	$zbxServers = zabbixAllHostGet();
 	$ret = audit_monitor($cmdbServer, $zbxServers);
+	$ipret = audit_ip($cmdbServer, $zbxServers);
+
 	$csvHelper = new CSV();
 	$csv_monitor = $csvHelper->arrayToCSV($ret['monitor']);
 	$sum = count($ret['monitor']);
 	$csv_updatecmdb = $csvHelper->arrayToCSV($ret['updatecmdb']);
+
+	// ip审计结果
+	$surplus_ip = implode("\n",$ipret['surplus_ip']);
+	$surplus_vip = implode("\n",$ipret['surplus_vip']);
+	$lack_ip = implode("\n", $ipret['lack_ip']);
+	$lack_vip = implode("\n",$ipret['lack_vip']);
 
 	$ret_cmdb = audit_cmdb($cmdbServer, $zbxServers);
 	$csv_auditcmdb = $csvHelper->arrayToCSV($ret_cmdb['missing']);
@@ -247,6 +319,10 @@ function main()
 	$content = $content . "\n\n未录入CMDB服务器:\n\n" . $csv_auditcmdb;
 	$content = $content . "\n\n未清监控的已下线服务器: \n\nSN,  内网IP\n" . $csv_auditcmdb_obsolete;
 	$content = $content . "\n\n未加监控服务器总数: $sum \n\nSN,  内网IP\n" . $csv_monitor;
+	$content = $content . "\n\nCMDB多余的IP:\n" . $surplus_ip;
+	$content = $content . "\n\nCMDB缺失的IP:\n" . $lack_ip;
+	$content = $content . "\n\nCMDB多余的VIP:\n" . $surplus_vip;
+	$content = $content . "\n\nCMDB缺失的VIP:\n" . $lack_vip;
 	print_r($content);
 
 	$dt = date("Y-m-d", time());
