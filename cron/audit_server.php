@@ -48,8 +48,8 @@ function sendmail($sub, $content, $format="text")
 function getAllServer()
 {
 	global $iTopAPI;
-	$oql = "SELECT Server";
-	$output_fields = "status,name,hostname,brand_name,model_name,cpu,ram,ip_list,vip_list,organization_name";
+	$oql = "SELECT Server WHERE status != 'obsolete'";
+	$output_fields = "status,name,hostname,osfamily_name,osversion_name,pdnum,pdsize,kernel,raid,brand_name,model_name,cpu,ram,ip_list,vip_list,organization_name";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
 	return $data['objects'];
@@ -231,7 +231,7 @@ function audit_ip($cmdbdata, $zbxServers) {
 	$vips = [];
 
 	foreach($cmdbdata as $server) {
-		$sn = $server['fields']['sn'];
+		$sn = $server['fields']['name'];
 		foreach($server['fields']['ip_list'] as $ip) {
 			$item = $sn . "," . $ip['ipaddress'] . "," . $ip['type'];
 			$ips[] = $item;
@@ -249,6 +249,9 @@ function audit_ip($cmdbdata, $zbxServers) {
 		$allip = explode(",",$server['inventory']['host_networks']);
 		foreach($allip as $ip) {
 			$tmp = explode("-", $ip);
+			if(count($tmp)<2) {
+				continue;
+			}
 			if($tmp[0] == "vip") {
 				$t = "ext";
 				if(preg_match("/^10\./",$tmp[1])) {
@@ -286,6 +289,23 @@ function audit_ip($cmdbdata, $zbxServers) {
 		if(!in_array($vip, $vips)) {
 			$ret['lack_vip'][] = $vip;
 		}
+	}
+	return $ret;
+}
+
+// 更新 all_ip字段
+function updateIP($cmdbdata) {
+	global $iTopAPI;
+	$ret = [];
+	foreach($cmdbdata as $server) {
+		$sn = $server['fields']['name'];
+		$ips = [];
+		foreach($server['fields']['ip_list'] as $ip) {
+			$item = $ip['type'] . "-" . $ip['ipaddress'];
+			$ips[] = $item;
+		}
+		$all_ip = implode(",", $ips);
+		$ret[] = $iTopAPI->coreUpdate("Server", $server['key'], ['all_ip'=>$all_ip]);
 	}
 	return $ret;
 }
@@ -332,6 +352,9 @@ function main()
 	//$headers .= "Content-type:text/html;charset=iso-8859-1" . "\r\n";
 	sendmail($subject,$content);
 	//die(json_encode($ret));
+
+	// 更新all_ip
+	updateIP($cmdbServer);
 }
 
 main();
