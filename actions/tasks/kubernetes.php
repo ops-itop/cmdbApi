@@ -353,13 +353,14 @@ class iTopKubernetes {
 			];
 		}
 
+		$customNginx = new iTopIngressAnnotations($this->data['ingressannotations_list']);
+		$annotations = $customNginx->run();
+		$annotations['kubernetes.io/ingress.class'] = $this->data['k8snamespace_name'];
 		$this->ingress = [
 			'metadata' => [
 				'name' => $this->app,
 				'namespace' => $this->data['k8snamespace_name'],
-				'annotations' => [
-					'kubernetes.io/ingress.class' => $this->data['k8snamespace_name']
-				]
+				'annotations' => $annotations
 			],
 			'spec' => [
 				'rules' => $rules
@@ -705,6 +706,22 @@ class iTopProbe {
 			}
 		}
 		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>15,"periodSeconds" => 3];
+	}
+}
+
+class iTopIngressAnnotations {
+	private $data;
+	private $annotations;
+
+	function __construct($data) {
+		$this->data = $data;
+	}
+
+	function run() {
+		foreach($this->data as $val) {
+			$this->annotations[$val['k8singressannotations_name']] = $val['value'];
+		}
+		return $this->annotations;
 	}
 }
 
