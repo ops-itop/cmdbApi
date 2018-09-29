@@ -237,7 +237,7 @@ function audit_ip($cmdbdata, $zbxServers) {
 			$ips[] = $item;
 		}
 		foreach($server['fields']['vip_list'] as $vip) {
-			$item = $sn . "," . $vip['ipaddress'] . "," . $vip['type'];
+			$item = $sn . "," . $vip['vip_name'] . "," . $vip['vip_type'];
 			$vips[] = $item;
 		}
 	}
