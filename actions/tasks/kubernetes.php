@@ -320,6 +320,7 @@ class iTopKubernetes {
 
 	function Ingress() {
 		$rules = [];
+		$tls = [];
 		$rules[] = [
 			'host' => $this->domain,
 			'http' => [
@@ -335,8 +336,12 @@ class iTopKubernetes {
 			]
 		];
 
+		$alldomain = [];
+		$alldomain[] = $this->domain;
+
 		// 处理自定义的Ingress
 		foreach($this->data['ingress_list'] as $k => $v) {
+			$alldomain[] = $v['domain_name'];
 			$rules[] = [
 				'host' => $v['domain_name'],
 				'http' => [
@@ -353,6 +358,11 @@ class iTopKubernetes {
 			];
 		}
 
+		// secretName 为 default-tls，需事先通过kubectl创建
+		if($this->data['https'] == "on") {
+			$tls[] = ['hosts' =>$alldomain, 'secretName' => 'default-tls'];
+		}
+
 		$customNginx = new iTopIngressAnnotations($this->data['ingressannotations_list']);
 		$annotations = $customNginx->run();
 		$annotations['kubernetes.io/ingress.class'] = $this->data['k8snamespace_name'];
@@ -366,6 +376,10 @@ class iTopKubernetes {
 				'rules' => $rules
 			]
 		];
+
+		if($tls) {
+			$this->ingress['spec']['tls'] = $tls;
+		}
 	}
 
 	function _checkResult($result) {
