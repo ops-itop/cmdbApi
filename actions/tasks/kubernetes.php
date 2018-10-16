@@ -186,6 +186,14 @@ class iTopKubernetes {
 			'MY_POD_NAMESPACE' => 'metadata.namespace',
 			'MY_POD_IP' => 'status.podIP',
 		];
+
+		$envresource = [
+			'MY_CPU_REQUEST' => 'requests.cpu',
+			'MY_CPU_LIMIT' => 'limits.cpu',
+			'MY_MEM_REQUEST' => 'requests.memory',
+			'MY_MEM_LIMIT' => 'limits.memory'
+		];
+
 		// 设置UPDATEDTIME，否则无修改时重部，pod可能不更新
 		$envstr = [
 			'APP_CONFIG_PATH' => APPCONFIG_PATH,
@@ -205,6 +213,18 @@ class iTopKubernetes {
 				'valueFrom' => [
 					'fieldRef' => [
 						'fieldPath' => $v
+					]
+				]
+			];
+		}
+
+		foreach($envresource as $k => $v) {
+			$this->env[] = [
+				'name' => $k,
+				'valueFrom' => [
+					'resourceFieldRef' => [
+						'containerName' => $this->app,
+						'resource' => $v
 					]
 				]
 			];
