@@ -45,7 +45,7 @@ if($ips)
 		$ip = $value['fields']['ipaddress'];
 		$url_accounts = trim($config['rooturl'], "/") . "/accounts.php?ip=" . $ip . "&cache=set";
 		$url_alert = trim($config['rooturl'], "/") . "/alert.php?type=ip&value=" . $ip . "&cache=set";
-		$url_logininfo = trim($config['rooturl'], "/") . "/logininfo.php?type=ip&value=" . $ip . "&cache=set";
+		$url_logininfo = trim($config['rooturl'], "/") . "/logininfo.php?ip=" . $ip . "&cache=set";
 		$ret_accounts = curlGet($url_accounts);
 		$ret_alert = curlGet($url_alert);
 		$ret_logininfo = curlGet($url_logininfo);
