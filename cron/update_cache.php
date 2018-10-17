@@ -20,7 +20,7 @@ $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 function getIPs()
 {
 	global $iTopAPI;
-	$oql = "SELECT PhysicalIP AS ip JOIN Server AS s ON ip.connectableci_id=s.id WHERE ip.type='int' AND s.status='production'";
+	$oql = "SELECT PhysicalIP AS ip JOIN Server AS s ON ip.connectableci_id=s.id WHERE ip.type='int' AND s.status!='obsolete'";
 	$data = $iTopAPI->coreGet("PhysicalIP", $oql, "ipaddress");
 	$ips = json_decode($data, true)['objects'];
 	return $ips;
