@@ -168,6 +168,7 @@ class iTopKubernetes {
 
 	private function _gethostaliases() {
 		$hostaliases = [];
+		if(!$this->data['hostaliases']) return $hostaliases;
 		$hosts = yaml_parse($this->data['hostaliases']);
 		if(is_array($hosts)) {
 			foreach($hosts as $ip => $domain) {
@@ -175,6 +176,26 @@ class iTopKubernetes {
 			}
 		}
 		return $hostaliases;
+	}
+
+	private function _getrollingstrategy() {
+		$strategy = [];
+		$rolling_strategy = $this->data['rolling_strategy'];
+		if($rolling_strategy) {
+			$s = explode(":", $rolling_strategy);
+			$ns = [];
+			foreach($s as $val) {
+				if(!preg_match('/.*%$/',$val)) {
+					$ns[] = (int)$val;
+				} else {
+					$ns[] = $val;
+				}
+			}
+			$strategy = ["type" => "RollingUpdate",
+				"rollingUpdate"=>["maxUnavailable"=>$ns[0], "maxSurge"=>$ns[1]]
+			];
+		}
+		return $strategy;
 	}
 
 	private function _getdomain() {
@@ -334,6 +355,11 @@ class iTopKubernetes {
 		if($hostaliases) {
 			$this->deployment['spec']['template']['spec']['hostAliases'] = $hostaliases;
 		}
+
+		$strategy = $this->_getrollingstrategy();
+		if($strategy) {
+			$this->deployment['spec']['strategy'] = $strategy;
+		}
 	}
 
 	function Service() {
@@ -459,7 +485,7 @@ class iTopKubernetes {
 		$this->Ingress();
 
 		$deployment = new Deployment($this->get('deployment'));
-		//var_dump($deployment);die();
+		//print_r($deployment);die();
 		$service = new Service($this->get('service'));
 		$ingress = new Ingress($this->get('ingress'));
 
