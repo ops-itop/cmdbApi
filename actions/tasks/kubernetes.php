@@ -166,6 +166,17 @@ class iTopKubernetes {
 		return $port_list[$objtype];
 	}
 
+	private function _gethostaliases() {
+		$hostaliases = [];
+		$hosts = yaml_parse($this->data['hostaliases']);
+		if(is_array($hosts)) {
+			foreach($hosts as $ip => $domain) {
+				$hostaliases[]=["ip" => $ip, "hostnames"=>["$domain"]];
+			}
+		}
+		return $hostaliases;
+	}
+
 	private function _getdomain() {
 		$domain = explode("/", $this->data['url']);
 		$this->domain = end($domain);
@@ -318,6 +329,11 @@ class iTopKubernetes {
 				]
 			]
 		];
+
+		$hostaliases = $this->_gethostaliases();
+		if($hostaliases) {
+			$this->deployment['spec']['template']['spec']['hostAliases'] = $hostaliases;
+		}
 	}
 
 	function Service() {
