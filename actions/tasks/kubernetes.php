@@ -271,6 +271,28 @@ class iTopKubernetes {
 	}
 
 	private function _defaultaffinity() {
+		$CPU = [];
+		// cpu_request超过设置阈值时，优先选择高配机器，高配机器核数通过配置文件定义
+		if($this->data['cpu_request'] >= _getconfig("kubernetes_pm_threshold", 3)) {
+			$CPU = _getconfig("kubernetes_pm_core", ["24"]);
+		}
+
+		// cpu_request低于设置阈值时，优先选择低配（虚拟机）机器，低配机器核数通过配置文件定义
+		// 小流量业务使用虚拟机相比物理机可以在相同成本下大幅增加可分配CPU的数量，充分利用kvm超售节省成本
+		if($this->data['cpu_request'] <= _getconfig("kubernetes_vm_threshold", 0.5)) {
+			$CPU = _getconfig("kubernetes_vm_core", ["8"]);
+		}
+
+		if($CPU) {
+			$exp = [
+				"key" => "cpu",
+				"operator" => "In",
+				"values" => $CPU
+			];
+		} else {
+			$exp = "";
+		}
+
 		$aff = ["nodeAffinity"=>["preferredDuringSchedulingIgnoredDuringExecution"=>[]]];
 		$aff["nodeAffinity"]["preferredDuringSchedulingIgnoredDuringExecution"][] = [
 			"weight" => 1,
@@ -279,7 +301,7 @@ class iTopKubernetes {
 					"key" => "role",
 					"operator" => "In",
 					"values" => ["node", "router"]
-					]
+					],$exp
 				]
 			]
 		];

@@ -8,6 +8,7 @@
  **/
 
 require dirname(__FILE__).'/../../etc/config.php';
+require dirname(__FILE__).'/../libs/functions.php';
 require dirname(__FILE__).'/../../lib/core.function.php';
 require dirname(__FILE__).'/../../lib/cmdb.function.php';
 require dirname(__FILE__).'/../../composer/vendor/autoload.php';
