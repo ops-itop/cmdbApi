@@ -15,6 +15,7 @@ use Maclof\Kubernetes\Models\Deployment;
 use Maclof\Kubernetes\Models\Service;
 use Maclof\Kubernetes\Models\Ingress;
 use Maclof\Kubernetes\Models\Secret;
+use Maclof\Kubernetes\Models\HorizontalPodAutoscaler;
 
 $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
@@ -43,16 +44,38 @@ $k8sClient = new Client([
 	'client_key'  => $config['kubernetes']['client_key'],
 ]);
 
-class iTopKubernetes {
-	private $app;
+abstract class iTopK8S {
+	protected $app;
+	protected $ns;
+	protected $result;
+
+	function __construct() {}
+
+	function _checkResult($result) {
+		foreach($result as $v) {
+			if($v['kind'] == "Status") {
+				$this->result['errno'] = 100;
+			}
+			$this->result['msg'][] = $v;
+		}
+	}
+
+	function get($attr) {
+		if(!isset($this->$attr)){
+			return(NULL);
+		}
+		return $this->$attr;
+	}
+}
+
+class iTopKubernetes extends itopK8s {
 	private $data;
-	private $deployment;
-	private $ingress;
-	private $service;
+	protected $deployment;
+	protected $ingress;
+	protected $service;
 	private $secrets;
 	private $domain;
 	private $errno = 0;
-	private $result;
 	private $mount;
 	private $env;
 	private $hostNetwork = false;
@@ -80,13 +103,6 @@ class iTopKubernetes {
 		$probe = new iTopProbe($this->data);
 		$this->livenessProbe = $probe->livenessProbe();
 		$this->readinessProbe = $probe->readinessProbe();
-	}
-
-	function get($attr) {
-		if(!isset($this->$attr)){
-			return(NULL);
-		}
-		return $this->$attr;
 	}
 
 	// 挂载宿主机时区
@@ -466,15 +482,6 @@ class iTopKubernetes {
 		}
 	}
 
-	function _checkResult($result) {
-		foreach($result as $v) {
-			if($v['kind'] == "Status") {
-				$this->result['errno'] = 100;
-			}
-			$this->result['msg'][] = $v;
-		}
-	}
-
 	function run($finalclass, $del=false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
@@ -532,6 +539,12 @@ class iTopKubernetes {
 			$result[] = $k8sClient->services()->create($service);
 		}
 
+		// 设置默认HPA
+		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
+			$hpa = new iTopHPA($this->data);
+			$rethpa = json_decode($hpa->run(), true);
+			$result[] = $rethpa['msg'][0];
+		}
 		$this->_checkResult($result);
 		return json_encode($this->result);
 	}
@@ -820,6 +833,90 @@ class iTopIngressAnnotations {
 			$this->annotations[$val['k8singressannotations_name']] = $val['value'];
 		}
 		return $this->annotations;
+	}
+}
+
+class iTopHPA extends itopK8s {
+	private $data;
+	private $hpa;
+	private $min;
+	private $max;
+	private $metrics;
+
+	function __construct($data) {
+		$this->data = $data;
+		$this->metrics = [];
+		if($this->data['finalclass'] == "Deployment") {
+			$this->defaultHpa();
+		} else {
+			$this->customHpa();
+		}
+		$this->hpa = [
+			"metadata" => [
+				"name" => $this->app,
+				"namespace" => $this->ns
+			], 
+			"spec" => [
+				"scaleTargetRef" => ["apiVersion"=>"apps/v1", "kind"=>"Deployment", "name" => $this->app],
+				"minReplicas" => $this->min,
+				"maxReplicas" => $this->max,
+				"metrics" => $this->metrics
+			]
+		];
+	}
+
+	function defaultHpa() {
+		$this->ns = $this->data['k8snamespace_name'];
+		$this->app = $this->data['applicationsolution_name'];
+		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
+		$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
+
+		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
+		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 60), "memory");
+	}
+
+	function customHpa() {
+		$this->ns = $this->data['k8snamespace_name'];
+		$this->app = $this->data['applicationsolution_name'];
+		$this->min = $this->data['minreplicas'];
+		$this->max = $this->data['maxreplicas'];
+		$metrics = $this->data['metrics'];
+		if($metrics) {
+			$metrics = yaml_parse($metrics);
+		}
+		foreach($metrics as $key => $val) {
+			switch($key) {
+				case "cpu": $this->addResouceMetrics((int)$val); break;
+				case "memory": $this->addResouceMetrics((int)$val, "memory"); break;
+				default : break;
+			}
+		}
+	}
+
+	function addResouceMetrics($val,$rtype="cpu") {
+		$this->metrics[] = [
+			"type" => "Resource",
+			"resource" => [
+				"name" => $rtype,
+				"targetAverageUtilization" => $val
+			]
+		];
+	}
+
+	function run() {
+		global $k8sClient;
+		$k8sClient->setNamespace($this->data['k8snamespace_name']);
+
+		$hpa = new HorizontalPodAutoscaler($this->hpa);
+
+		$result = [];
+		if($k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'))) {
+			$result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
+		} else {
+			$result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
+		}
+		$this->_checkResult($result);
+		return json_encode($this->result);
 	}
 }
 
