@@ -81,6 +81,7 @@ class iTopKubernetes extends itopK8s {
 	private $hostNetwork = false;
 	private $livenessProbe;
 	private $readinessProbe;
+	private $sessionAffinity = "ClientIP";
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
@@ -425,7 +426,8 @@ class iTopKubernetes extends itopK8s {
 				'ports' => $this->_getports('service'),
 				'selector' => [
 					'app' => $this->app
-				]
+				],
+				"sessionAffinity" => $this->sessionAffinity
 			]
 		];
 	}
