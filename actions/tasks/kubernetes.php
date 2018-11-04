@@ -286,6 +286,15 @@ class iTopKubernetes extends itopK8s {
 		}
 	}
 
+	private function _defaultasecuritycontext() {
+		$securitycontext = [];
+		$securitycontext["sysctls"] = [];
+		$securitycontext["sysctls"][] = [
+			"name" => "net.ipv4.ip_local_port_range",
+			"value" => "2000    65000"
+		];
+		return $securitycontext;
+	}
 	private function _defaultaffinity() {
 		$CPU = [];
 		// cpu_request超过设置阈值时，优先选择高配机器，高配机器核数通过配置文件定义
@@ -309,16 +318,18 @@ class iTopKubernetes extends itopK8s {
 			$exp = "";
 		}
 
+		// 优先使用node和router，尽量不往master上部署
+		$matchExpressions = [];
+		$matchExpressions[] = ["key"=>"role","operator"=>"In","values"=>["node", "router"]];
+
+		if($exp) {
+			$matchExpressions[] = $exp;
+		}
 		$aff = ["nodeAffinity"=>["preferredDuringSchedulingIgnoredDuringExecution"=>[]]];
 		$aff["nodeAffinity"]["preferredDuringSchedulingIgnoredDuringExecution"][] = [
 			"weight" => 1,
 			"preference" => [
-				"matchExpressions" => [[
-					"key" => "role",
-					"operator" => "In",
-					"values" => ["node", "router"]
-					],$exp
-				]
+				"matchExpressions" => $matchExpressions
 			]
 		];
 		return $aff;
@@ -384,6 +395,7 @@ class iTopKubernetes extends itopK8s {
 							]
 						],
 						'volumes' => $this->mount['volumes'],
+						'securityContext' => $this->_defaultaffinity(),
 					],
 				]
 			]
