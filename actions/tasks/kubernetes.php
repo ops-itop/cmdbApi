@@ -395,7 +395,7 @@ class iTopKubernetes extends itopK8s {
 							]
 						],
 						'volumes' => $this->mount['volumes'],
-						'securityContext' => $this->_defaultaffinity(),
+						'securityContext' => $this->_defaultasecuritycontext(),
 					],
 				]
 			]
