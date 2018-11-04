@@ -81,7 +81,7 @@ class iTopKubernetes extends itopK8s {
 	private $hostNetwork = false;
 	private $livenessProbe;
 	private $readinessProbe;
-	private $sessionAffinity = "ClientIP";
+	private $sessionAffinity = "None";   //ClientIP并不好用，不能解决ipvs高延迟问题，还会带来新的问题，流量不均，影响更坏
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
