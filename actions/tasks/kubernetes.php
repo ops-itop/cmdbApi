@@ -884,7 +884,7 @@ class iTopHPA extends itopK8s {
 		$this->app = $this->data['applicationsolution_name'];
 		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
 		if($this->data['hostnetwork'] == 'true') {
-			$this->max = $this->data['replicas'];
+			$this->max = (int)$this->data['replicas'];
 		} else {
 			$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
 		}
