@@ -400,7 +400,6 @@ class iTopKubernetes extends itopK8s {
 							]
 						],
 						'volumes' => $this->mount['volumes'],
-						'securityContext' => $this->_defaultasecuritycontext(),
 					],
 				]
 			]
@@ -414,6 +413,11 @@ class iTopKubernetes extends itopK8s {
 		$strategy = $this->_getrollingstrategy();
 		if($strategy) {
 			$this->deployment['spec']['strategy'] = $strategy;
+		}
+
+		$securitycontext = $this->_defaultasecuritycontext();
+		if($securitycontext) {
+			$this->deployment['spec']['template']['spec']['securityContext'] = $securitycontext;
 		}
 	}
 
