@@ -883,7 +883,11 @@ class iTopHPA extends itopK8s {
 		$this->ns = $this->data['k8snamespace_name'];
 		$this->app = $this->data['applicationsolution_name'];
 		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
-		$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
+		if($this->data['hostnetwork'] == 'true') {
+			$this->max = $this->data['replicas'];
+		} else {
+			$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
+		}
 
 		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
 		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 60), "memory");
