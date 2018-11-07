@@ -289,6 +289,10 @@ class iTopKubernetes extends itopK8s {
 
 	private function _defaultasecuritycontext() {
 		$securitycontext = [];
+		// forbidden sysctl: "net.ipv4.ip_local_port_range" not allowed with host net enabled
+		if($this->data['hostnetwork'] == 'true') {
+			return $securitycontext;
+		}
 		$securitycontext["sysctls"] = [];
 		$securitycontext["sysctls"][] = [
 			"name" => "net.ipv4.ip_local_port_range",
