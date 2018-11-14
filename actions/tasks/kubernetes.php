@@ -898,7 +898,7 @@ class iTopHPA extends itopK8s {
 		}
 
 		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
-		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 60), "memory");
+		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 85), "memory");
 	}
 
 	function customHpa() {
