@@ -47,19 +47,16 @@ $k8sClient = new Client([
 abstract class iTopK8S {
 	protected $app;
 	protected $ns;
-	protected $result;
+	protected $result=[];
 
 	function __construct() {}
 
-	function _checkResult($result) {
-		foreach($result as $v) {
-			if($v['kind'] == "Status") {
-				$this->result['errno'] = 100;
-			}
-			$this->result['msg'][] = $v;
+	function dealResult($ret) {
+		foreach($ret as $val) {
+			$this->result[] = $val;
 		}
 	}
-
+	
 	function get($attr) {
 		if(!isset($this->$attr)){
 			return(NULL);
@@ -71,11 +68,9 @@ abstract class iTopK8S {
 class iTopKubernetes extends itopK8s {
 	private $data;
 	protected $deployment;
-	protected $ingress;
 	protected $service;
 	private $secrets;
 	private $domain;
-	private $errno = 0;
 	private $mount;
 	private $env;
 	private $hostNetwork = false;
@@ -87,7 +82,6 @@ class iTopKubernetes extends itopK8s {
 		$this->app = $data['applicationsolution_name'];
 		$this->data = $data;
 		$this->_getdomain();
-		$this->result = ['errno' => $this->errno, 'msg' => []];
 		$this->secrets = [];
 		$this->env = [];
 
@@ -122,36 +116,22 @@ class iTopKubernetes extends itopK8s {
 	}
 
 	// 同时将secret写入环境变量
-	private function _secret2env() {
-		$secret = new iTopSecret();
-		$secret->__init_by_data($this->data);
-		$data = $secret->Secret();
-		if(!$data) return;
-		$secretResult = json_decode($secret->run('Secret'), true);
-		$this->result['errno'] = $secretResult['errno'];
-
-		$ns = $this->data['k8snamespace_name'];
-
+	private function _secret2env($secret) {
+		if(!$secret) return;
 		// 只有存在有效数据的secret可以被挂载
-		if($data[$ns]['data']) {
-			$this->secrets[] = $data[$ns];
+		if($secret['data']) {
+			$this->secrets[] = $secret;
 		}
-		foreach($data[$ns]['data'] as $k => $v) {
+		foreach($secret['data'] as $k => $v) {
 			$this->env[] = [
 				'name' => $k,
 				'valueFrom' =>[
 					'secretKeyRef' => [
-						'name' => $data[$ns]['metadata']['name'],
+						'name' => $secret['metadata']['name'],
 						'key' => $k
 					]
 				]
 			];
-		}
-		// 提供CreateEvent中使用的格式
-		if($secretResult['errno'] == 0) {
-			$this->result['msg'][] = ["kind"=>"Secret", "metadata"=>["name" => $data[$ns]['metadata']['name']]];
-		} else {
-			$this->result['msg'][] = $secretResult['msg'][0];
 		}
 	}
 
@@ -359,8 +339,6 @@ class iTopKubernetes extends itopK8s {
 		$this->_mounttz();
 
 		$this->_getenv();
-		$this->_secret2env();
-		$this->_mountsecret();
 
 		$this->deployment = [
 			'metadata' => [
@@ -440,169 +418,150 @@ class iTopKubernetes extends itopK8s {
 		];
 	}
 
-	function Ingress() {
-		$rules = [];
-		$tls = [];
-		$rules[] = [
-			'host' => $this->domain,
-			'http' => [
-				'paths' => [
-					[
-						'path' => '/',
-						'backend' => [
-							'serviceName' => $this->app,
-							'servicePort' => $this->_getports('service')[0]['port']
-						]
-					]
-				]
-			]
-		];
+	function PrivateIngress() {
+		$data = [];
+		$data['applicationsolution_name'] = $this->app;
+		$data['domain_name'] = $this->domain;
+		$data['https'] = $this->data['https'];
+		$data['location'] = "/";
+		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
+		$data['serviceport'] = $this->_getports('service')[0]['port'];
+		$data['ingressannotations_list'] = $this->data['ingressannotations_list'];
+		return $data;
+	}
 
-		$alldomain = [];
-		$alldomain[] = $this->domain;
+	function PrivateSecret() {
+		$data = [];
+		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
+		$data['applicationsolution_name'] = $this->app;
+		$data['data'] = $this->data['secret'];
+		$data['name'] = "";
+		return $data;
+	}
 
-		// 处理自定义的Ingress
-		foreach($this->data['ingress_list'] as $k => $v) {
-			$alldomain[] = $v['domain_name'];
-			$rules[] = [
-				'host' => $v['domain_name'],
-				'http' => [
-					'paths' => [
-						[
-							'path' => $v['location'],
-							'backend' => [
-								'serviceName' => $this->app,
-								'servicePort' => (int) $v['serviceport']
-							]
-						]
-					]
-				]
-			];
+	private function _delete($k8sClient) {
+		$del = true;
+
+		$ingressData = $this->PrivateIngress();
+		$privateIngress = new iTopIngress($ingressData);
+
+		// 删除deployment涉及的所有ingress，包括自动设置的和手动添加的
+		$this->result[] = $privateIngress->run($del);
+		foreach($this->data['ingress_list'] as $val) {
+			$ing = new iTopIngress($val);
+			$this->result[] = $ing->run($del);
 		}
 
-		// secretName 为 default-tls，需事先通过kubectl创建
-		if($this->data['https'] == "on") {
-			$tls[] = ['hosts' =>$alldomain, 'secretName' => 'default-tls'];
+		// 删除部署和对应服务
+		$this->result[] = $k8sClient->deployments()->deleteByName($this->app);
+		$this->result[] = $k8sClient->services()->deleteByName($this->app);
+
+		// replicaSet 和 Pod 需要单独删除
+		$rs = $k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
+		$pod = $k8sClient->pods()->setLabelSelector(['app'=>$this->app])->find();
+		foreach($rs as $k => $v) {
+			$this->result[] = $k8sClient->replicaSets()->delete($v);
+		}
+		foreach($pod as $k => $v) {
+			$this->result[] = $k8sClient->pods()->delete($v);
 		}
 
-		$customNginx = new iTopIngressAnnotations($this->data['ingressannotations_list']);
-		$annotations = $customNginx->run();
-		$annotations['kubernetes.io/ingress.class'] = $this->data['k8snamespace_name'];
-		$this->ingress = [
-			'metadata' => [
-				'name' => $this->app,
-				'namespace' => $this->data['k8snamespace_name'],
-				'annotations' => $annotations
-			],
-			'spec' => [
-				'rules' => $rules
-			]
-		];
+		// 只删除私有secret, 私有secret名称是app名称
+		$this->result[] = $k8sClient->secret()->deleteByName($this->app);
 
-		if($tls) {
-			$this->ingress['spec']['tls'] = $tls;
+		// 删除默认HPA
+		$hpa = new iTopHPA($this->data);
+		$this->result[] = $hpa->run($del);
+
+		// ToDO： 删除自定义HPA
+	}
+
+	private function _updateDeployment($k8sClient) {
+		$this->Deployment();
+		$deployment = new Deployment($this->get('deployment'));
+		if($k8sClient->deployments()->exists($deployment->getMetadata('name'))) {
+			$this->result[] = $k8sClient->deployments()->update($deployment);
+		} else {
+			$this->result[] = $k8sClient->deployments()->create($deployment);
 		}
 	}
 
-	function run($finalclass, $del=false) {
+	private function _updateService($k8sClient) {
+		$this->Service();
+		$service = new Service($this->get('service'));
+		if($k8sClient->services()->exists($service->getMetadata('name'))) {
+			$this->result[] = $k8sClient->services()->patch($service);
+		} else {
+			$this->result[] = $k8sClient->services()->create($service);
+		}
+	}
+
+	private function _updateIngress($k8sClient) {
+		// 考虑先下线后上线，下线步骤删除所有ingress的情况，上线步骤应上线所有ingress
+		$ingressData = $this->PrivateIngress();
+		$privateIngress = new iTopIngress($ingressData);
+		$this->dealResult($privateIngress->run());
+
+		foreach($this->data['ingress_list'] as $val) {
+			$ing = new iTopIngress($val);
+			$this->dealResult($ing->run());
+		}
+	}
+
+	private function _updateSecret($k8sClient) {
+		// 只需要更新私有secret，公共secret直接挂载即可
+		$secretData = $this->PrivateSecret();
+		$privateSecret = new iTopSecret($secretData);
+		$this->dealResult($privateSecret->run());
+
+		$this->_secret2env($privateSecret->get('secret'));
+		$this->_mountsecret();
+	}
+
+	function run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
-		$result = [];
-		if($del && $finalclass == "Deployment") {
-			$result[] = $k8sClient->deployments()->deleteByName($this->app);
-			$result[] = $k8sClient->services()->deleteByName($this->app);
-			$result[] = $k8sClient->ingresses()->deleteByName($this->app);
-			foreach($this->secrets as $v) {
-				$result[] = $k8sClient->secret()->deleteByName($v['metadata']['name']);
-			}
-
-			// replicaSet 和 Pod 需要单独删除
-			$rs = $k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
-			$pod = $k8sClient->pods()->setLabelSelector(['app'=>$this->app])->find();
-			foreach($rs as $k => $v) {
-				$result[] = $k8sClient->replicaSets()->delete($v);
-			}
-			foreach($pod as $k => $v) {
-				$result[] = $k8sClient->pods()->delete($v);
-			}
-
-			$this->_checkResult($result);
-			return json_encode($this->result);
+		if($del) {
+			$this->_delete();
+			return ($this->result);
 		}
 
-		$this->Deployment();
-		$this->Service();
-		$this->Ingress();
+		// 注意顺序 secret要先建立
+		$this->_updateSecret($k8sClient);
+		$this->_updateDeployment($k8sClient);		
+		$this->_updateService($k8sClient);
+		$this->_updateIngress($k8sClient);
 
-		$deployment = new Deployment($this->get('deployment'));
-		//print_r($deployment);die();
-		$service = new Service($this->get('service'));
-		$ingress = new Ingress($this->get('ingress'));
-
-		if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
-			$result[] = $k8sClient->ingresses()->update($ingress);
-		} else {
-			$result[] = $k8sClient->ingresses()->create($ingress);
-		}
-
-		// 如果只是更新了Ingress，只操作Ingress对象
-		if($finalclass == "Ingress") { return json_encode($result); }
-
-		if($k8sClient->deployments()->exists($deployment->getMetadata('name'))) {
-			$result[] = $k8sClient->deployments()->update($deployment);
-		} else {
-			$result[] = $k8sClient->deployments()->create($deployment);
-		}
-
-		if($k8sClient->services()->exists($service->getMetadata('name'))) {
-			$result[] = $k8sClient->services()->patch($service);
-		} else {
-			$result[] = $k8sClient->services()->create($service);
-		}
 
 		// 设置默认HPA
 		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
 			$hpa = new iTopHPA($this->data);
-			$rethpa = json_decode($hpa->run(), true);
-			$result[] = $rethpa['msg'][0];
+			$this->dealResult($hpa->run());
 		}
-		$this->_checkResult($result);
-		return json_encode($this->result);
+		return ($this->result);
 	}
 }
 
-class iTopSecret {
-	private $secret_id;
+class iTopSecret extends itopK8s {
 	private $name;
+	private $secret;
 	private $data;      // secret数据
 	private $isYaml = false;
-	private $ns;
 	private $errno = 100;
-	private $result;
 
-	function __init_by_data($data) {
-		$this->ns = [];
-		// 处理Deployment中的Secret
+	function __construct($data) {
+		$this->data = $data['data'];
 
-		if($data['finalclass'] == "Deployment") {
-			$this->data = $data['secret'];
-			$this->name = SECRET_PRE . "private-" . $data['applicationsolution_name'];
-			$this->ns[] = $data['k8snamespace_name'];
-		} else {
-			$this->data = $data['data'];
-			$this->name = SECRET_PRE . $data['name'];
-			$this->ns = $this->_getNamespace();
+		// 私有secret名称直接用app名称，公共secret用app名称加secret名称，Controller对象中私有secret调用时将data['name']设置为空值
+		$this->name = $data['applicationsolution_name'];
+		if($data['name']) {
+			$this->name = $data['applicationsolution_name'] . "-" . $data['name'];
 		}
 
-		$this->_check();
-		$this->result = ['errno' => $this->errno, 'msg' => []];
-	}
+		$this->ns = $data['k8snamespace_name'];
 
-	function __init_by_id($secret_id) {
-		$this->secret_id = $secret_id;
-		$data = GetData($secret_id, "Secret");
-		$this->__init_by_data($data);
+		$this->_check();
+		$this->Secret();
 	}
 
 	// 检查是否是yaml格式
@@ -621,71 +580,52 @@ class iTopSecret {
 		}
 	}
 
-	function _getNamespace() {
-		global $iTopAPI;
-		$oql = "SELECT K8sNamespace";
-		$ns_list = [];
-		$ns = $iTopAPI->coreGet("K8sNamespace", $oql, "name");
-		$ns = json_decode($ns, true)['objects'];
-		foreach($ns as $k => $v) {
-			$ns_list[] = $v['fields']['name'];
-		}
-		return $ns_list;
-	}
-
 	function Secret() {
 		$secret_data = [];
 		foreach($this->data as $k => $v) {
 			$secret_data[$k] = base64_encode($v);
 		}
-		$secrets = [];
-		foreach($this->ns as $v) {
-			$secrets[$v] = [
-				'metadata' => [
-					'name' => $this->name,
-					'namespace' => $v
-				],
-				'type' => 'Opaque',
-				'data' => $secret_data
-			];
-		}
-		return $secrets;
+		$this->secret = [
+			'metadata' => [
+				'name' => $this->name,
+				'namespace' => $this->ns
+			],
+			'type' => 'Opaque',
+			'data' => $secret_data
+		];
 	}
 
 	function deallog($r, $k) {
 		if($r['kind'] == "Secret") {
-			$this->result['errno'] = 0;   // kind为Secret时没有错误发生
 			return ["kind"=>"Secret", "message"=>"update Secret $k." . $r['metadata']['name'] . " successful"];
 		}
 		return $r;
 	}
 
-	function run($finalclass, $del=false) {
+	function run($del = false) {
 		global $k8sClient;
 		if(!$this->data) {
 			$del = true;
 		}
 
 		if(!$this->isYaml) {
-			$this->result['msg'][] = ["kind"=>"Status", "message"=>['message'=>"ERR: secret is not valid yaml"]];
-			return json_encode($this->result);
+			$this->result[] = ["kind"=>"Status", "message"=>['message'=>"ERR: secret is not valid yaml"]];
+			return ($this->result);
 		}
-		$secrets = $this->Secret();
-		foreach($secrets as $k => $v) {
-			$secret = new Secret($v);
-			$k8sClient->setNamespace($k);
-			$exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
-			$r = ['kind'=>"Secret", "metadata"=>["name"=>$this->name]];
-			if($del) {
-				if($exists) $r = $k8sClient->secrets()->deleteByName($this->name);
-			} elseif($exists) {
-				$r = $k8sClient->secrets()->update($secret);
-			} else {
-				$r = $k8sClient->secrets()->create($secret);
-			}
-			$this->result['msg'][] = $this->deallog($r, $k);
+
+		$secret = new Secret($this->secret);
+		$k8sClient->setNamespace($this->ns);
+		$exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
+		$r = ['kind'=>"Secret", "metadata"=>["name"=>$this->name]];
+		if($del) {
+			if($exists) $r = $k8sClient->secrets()->deleteByName($this->name);
+		} elseif($exists) {
+			$r = $k8sClient->secrets()->update($secret);
+		} else {
+			$r = $k8sClient->secrets()->create($secret);
 		}
-		return json_encode($this->result);
+		$this->result[] = $this->deallog($r, $this->name);
+		return ($this->result);
 	}
 }
 
@@ -842,17 +782,102 @@ class iTopProbe {
 	}
 }
 
+class iTopIngress extends iTopK8S {
+	private $data;
+	private $name;
+	private $ingress;
+
+	function __construct($data) {
+		$this->data = $data;
+		$this->ingress = [];
+		$this->getName();
+		$this->Ingress();
+	}
+
+	private function getName() {
+		$matches = [];
+		$this->name = $this->data['applicationsolution_name'] . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
+		$hash = substr(md5($this->name), 0, 5);
+		// By convention, the names of Kubernetes resources should be up to maximum length of 253 characters and consist of lower case alphanumeric characters, -, and .
+		preg_match_all('/[a-z0-9\.]+/', $this->name, $matches);
+		$this->name = implode("-", $matches[0]);
+		$this->name = $this->name . "-" . $hash;
+	}
+
+	private function Ingress() {
+		$rules = [];
+		$tls = [];
+		$data = $this->data;
+		$rules[] = [
+			'host' => $data['domain_name'],
+			'http' => [
+				'paths' => [
+					[
+						'path' => $data['location'],
+						'backend' => [
+							'serviceName' => $data['applicationsolution_name'],
+							'servicePort' => (int)$data['serviceport']
+						]
+					]
+				]
+			]
+		];
+		// secretName 为 default-tls，需事先通过kubectl创建
+		if($this->data['https'] == "on") {
+			$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => 'default-tls'];
+		}
+		$customNginx = new iTopIngressAnnotations($data['ingressannotations_list']);
+		$annotations = $customNginx->run();
+		$annotations['kubernetes.io/ingress.class'] = $data['k8snamespace_name'];
+		$this->ingress = [
+			'metadata' => [
+				'name' => $this->name,
+				'namespace' => $data['k8snamespace_name'],
+				'annotations' => $annotations
+			],
+			'spec' => [
+				'rules' => $rules
+			]
+		];
+		if($tls) {
+			$this->ingress['spec']['tls'] = $tls;
+		}
+	}
+
+	function run($del = false) {
+		global $k8sClient;
+		$k8sClient->setNamespace($this->data['k8snamespace_name']);
+		$ingress = new Ingress($this->ingress);
+		if($del) {
+			$this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
+		} else {
+			if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
+				$this->result[] = $k8sClient->ingresses()->update($ingress);
+			} else {
+				$this->result[] = $k8sClient->ingresses()->create($ingress);
+			}
+		}
+		return ($this->result);
+	}
+}
+
 class iTopIngressAnnotations {
 	private $data;
 	private $annotations;
 
 	function __construct($data) {
 		$this->data = $data;
+		$this->annotations = [];
 	}
 
 	function run() {
 		foreach($this->data as $val) {
-			$this->annotations[$val['k8singressannotations_name']] = $val['value'];
+			if($val['value']) {
+				$v = $val['value'];
+			} else {
+				$v = $val['k8singressannotations_default_value'];
+			}
+			$this->annotations[$val['k8singressannotations_name']] = $v;
 		}
 		return $this->annotations;
 	}
@@ -929,20 +954,22 @@ class iTopHPA extends itopK8s {
 		];
 	}
 
-	function run() {
+	function run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 
 		$hpa = new HorizontalPodAutoscaler($this->hpa);
 
-		$result = [];
-		if($k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'))) {
-			$result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
+		if($del) {
+			$this->result[] = $k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
 		} else {
-			$result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
+			if($k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'))) {
+				$this->result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
+			} else {
+				$this->result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
+			}
 		}
-		$this->_checkResult($result);
-		return json_encode($this->result);
+		return ($this->result);
 	}
 }
 
@@ -993,7 +1020,9 @@ function GetData($ID, $sClass="Kubernetes") {
 	$oql = "SELECT $sClass WHERE id=$ID";
 	$data = $iTopAPI->coreGet($sClass, $oql);
 	$KubeObj = json_decode($data, true)['objects'];
-	$ret = reset($KubeObj)['fields'];
+	$obj = reset($KubeObj);
+	$ret = $obj['fields'];
+	$ret['key'] = $obj['key'];
 	return $ret;
 }
 
@@ -1043,12 +1072,10 @@ if($data['flag_kubestatus'] != "MANUAL" && !$BATCH && !$del) {
 $finalclass = $data['finalclass'];
 
 if($finalclass == "Secret") {
-	$itopK8s = new iTopSecret();
-	$itopK8s->__init_by_data($data);
+	$itopK8s = new iTopSecret($data);
 }
 if($finalclass == "Ingress") {
-	$data = GetData($data['deployment_id'], 'Deployment');
-	$itopK8s = new iTopKubernetes($data);
+	$itopK8s = new iTopIngress($data);
 }
 if($finalclass == "Deployment") {
 	$itopK8s = new iTopKubernetes($data);
@@ -1057,14 +1084,14 @@ if($finalclass == "Deployment") {
 // $ret 格式 :
 // ['errno'=>0, 'msg'=>[]]
 try {
-	$ret = $itopK8s->run($finalclass, $del);
+	$ret = $itopK8s->run($del);
 } catch(Exception $e) {
 	$message = json_decode($e->getMessage());
 	if(!$message) $message = $e->getMessage();
 	$ret = ['errno'=>100,'msg'=>[['kind'=>'Status', 'message'=>$message]]];
 	$ret = json_encode($ret);
 }
-
+print_r($ret);die();
 $itopEvent = CreateEvent($ret);
 
 // 下线操作不写kubestatus
