@@ -48,6 +48,7 @@ abstract class iTopK8S {
 	protected $app;
 	protected $ns;
 	protected $result=[];
+	protected $exists;
 
 	function __construct() {}
 
@@ -77,6 +78,7 @@ class iTopKubernetes extends itopK8s {
 	private $livenessProbe;
 	private $readinessProbe;
 	private $sessionAffinity = "None";   //ClientIP并不好用，不能解决ipvs高延迟问题，还会带来新的问题，流量不均，影响更坏
+	protected $exists_service;
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
@@ -446,15 +448,19 @@ class iTopKubernetes extends itopK8s {
 		$privateIngress = new iTopIngress($ingressData);
 
 		// 删除deployment涉及的所有ingress，包括自动设置的和手动添加的
-		$this->result[] = $privateIngress->run($del);
+		$this->dealResult($privateIngress->run($del));
 		foreach($this->data['ingress_list'] as $val) {
 			$ing = new iTopIngress($val);
-			$this->result[] = $ing->run($del);
+			$this->dealResult($ing->run($del));
 		}
 
 		// 删除部署和对应服务
-		$this->result[] = $k8sClient->deployments()->deleteByName($this->app);
-		$this->result[] = $k8sClient->services()->deleteByName($this->app);
+		if($this->exists) {
+			$this->result[] = $k8sClient->deployments()->deleteByName($this->app);
+		}
+		if($this->exists_service) {
+			$this->result[] = $k8sClient->services()->deleteByName($this->app);
+		}
 
 		// replicaSet 和 Pod 需要单独删除
 		$rs = $k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
@@ -467,29 +473,27 @@ class iTopKubernetes extends itopK8s {
 		}
 
 		// 只删除私有secret, 私有secret名称是app名称
-		$this->result[] = $k8sClient->secret()->deleteByName($this->app);
+		$secretData = $this->PrivateSecret();
+		$privateSecret = new iTopSecret($secretData);
+		$this->dealResult($privateSecret->run($del));
 
 		// 删除默认HPA
 		$hpa = new iTopHPA($this->data);
-		$this->result[] = $hpa->run($del);
+		$this->dealResult($hpa->run($del));
 
 		// ToDO： 删除自定义HPA
 	}
 
-	private function _updateDeployment($k8sClient) {
-		$this->Deployment();
-		$deployment = new Deployment($this->get('deployment'));
-		if($k8sClient->deployments()->exists($deployment->getMetadata('name'))) {
+	private function _updateDeployment($k8sClient, $deployment) {
+		if($this->exists) {
 			$this->result[] = $k8sClient->deployments()->update($deployment);
 		} else {
 			$this->result[] = $k8sClient->deployments()->create($deployment);
 		}
 	}
 
-	private function _updateService($k8sClient) {
-		$this->Service();
-		$service = new Service($this->get('service'));
-		if($k8sClient->services()->exists($service->getMetadata('name'))) {
+	private function _updateService($k8sClient, $service) {
+		if($this->exists_service) {
 			$this->result[] = $k8sClient->services()->patch($service);
 		} else {
 			$this->result[] = $k8sClient->services()->create($service);
@@ -521,15 +525,24 @@ class iTopKubernetes extends itopK8s {
 	function run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
+
+		$this->Deployment();
+		$deployment = new Deployment($this->get('deployment'));
+		$this->Service();
+		$service = new Service($this->get('service'));
+
+		$this->exists = $k8sClient->deployments()->exists($deployment->getMetadata('name'));
+		$this->exists_service = $k8sClient->services()->exists($service->getMetadata('name'));
+
 		if($del) {
-			$this->_delete();
+			$this->_delete($k8sClient);
 			return ($this->result);
 		}
 
 		// 注意顺序 secret要先建立
 		$this->_updateSecret($k8sClient);
-		$this->_updateDeployment($k8sClient);
-		$this->_updateService($k8sClient);
+		$this->_updateDeployment($k8sClient, $deployment);
+		$this->_updateService($k8sClient, $service);
 		$this->_updateIngress($k8sClient);
 
 		// 设置默认HPA
@@ -606,6 +619,8 @@ class iTopSecret extends itopK8s {
 
 	function run($del = false) {
 		global $k8sClient;
+		$k8sClient->setNamespace($this->ns);
+
 		if(!$this->data) {
 			$del = true;
 		}
@@ -616,13 +631,11 @@ class iTopSecret extends itopK8s {
 		}
 
 		$secret = new Secret($this->secret);
-		$k8sClient->setNamespace($this->ns);
-		$exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
-		$r = ['kind'=>"Secret", "metadata"=>["name"=>$this->name]];
+		$this->exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
+
+		$r = ['kind'=>"Status", "message"=>"Secret " . $this->name . " Not Found"];
 		if($del) {
-			if($exists) {
-				$r = $k8sClient->secrets()->deleteByName($this->name);
-			}
+			if($this->exists) $r = $k8sClient->secrets()->deleteByName($this->name);
 		} elseif($exists) {
 			$r = $k8sClient->secrets()->update($secret);
 		} else {
@@ -852,16 +865,16 @@ class iTopIngress extends iTopK8S {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 		$ingress = new Ingress($this->ingress);
+		$this->exists = $k8sClient->ingresses()->exists($ingress->getMetadata('name'));
 
 		if($del) {
-			$this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
+			if($this->exists) $this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
+		} elseif($this->exists) {
+			$this->result[] = $k8sClient->ingresses()->update($ingress);
 		} else {
-			if($k8sClient->ingresses()->exists($ingress->getMetadata('name'))) {
-				$this->result[] = $k8sClient->ingresses()->update($ingress);
-			} else {
-				$this->result[] = $k8sClient->ingresses()->create($ingress);
-			}
+			$this->result[] = $k8sClient->ingresses()->create($ingress);
 		}
+
 		return ($this->result);
 	}
 }
@@ -964,16 +977,16 @@ class iTopHPA extends itopK8s {
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 
 		$hpa = new HorizontalPodAutoscaler($this->hpa);
+		$this->exists = $k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'));
 
 		if($del) {
-			$this->result[] = $k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
+			if($this->exists) $this->result[] = $k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
+		} elseif($this->exists) {
+			$this->result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
 		} else {
-			if($k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'))) {
-				$this->result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
-			} else {
-				$this->result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
-			}
+			$this->result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
 		}
+
 		return ($this->result);
 	}
 }
@@ -991,7 +1004,12 @@ function CreateEvent($log) {
 	$description = [];
 	foreach($log as $k => $v) {
 		if($v['kind'] == "Status") {
-			$description[] = $v['message'];
+			if(array_key_exists('message', $v)) {
+				$description[] = $v['message'];
+			}
+			if(array_key_exists('status', $v)) {
+				$description[] = "Delete " . $v['details']['kind'] . " " . $v['details']['name'] . "  " . $v['status'];
+			}
 		} else {
 			$description[] = "Update " . $v['kind'] . " " . $v['metadata']['name'] . " successful";
 		}
