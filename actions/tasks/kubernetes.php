@@ -514,7 +514,6 @@ class iTopKubernetes extends itopK8s {
 		$secretData = $this->PrivateSecret();
 		$privateSecret = new iTopSecret($secretData);
 		$this->dealResult($privateSecret->run());
-
 		$this->_secret2env($privateSecret->get('secret'));
 		$this->_mountsecret();
 	}
@@ -544,7 +543,7 @@ class iTopKubernetes extends itopK8s {
 
 class iTopSecret extends itopK8s {
 	private $name;
-	private $secret;
+	protected $secret;
 	private $data;      // secret数据
 	private $isYaml = false;
 
