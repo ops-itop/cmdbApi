@@ -527,6 +527,9 @@ class iTopKubernetes extends itopK8s {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 
+		// 注意顺序 secret要先于Deployment调用前执行，secret中更新环境变量，挂载secret
+		$this->_updateSecret($k8sClient);
+
 		$this->Deployment();
 		$deployment = new Deployment($this->get('deployment'));
 		$this->Service();
@@ -540,8 +543,6 @@ class iTopKubernetes extends itopK8s {
 			return ($this->result);
 		}
 
-		// 注意顺序 secret要先建立
-		$this->_updateSecret($k8sClient);
 		$this->_updateDeployment($k8sClient, $deployment);
 		$this->_updateService($k8sClient, $service);
 		$this->_updateIngress($k8sClient);
@@ -634,7 +635,7 @@ class iTopSecret extends itopK8s {
 		$secret = new Secret($this->secret);
 		$this->exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
 
-		$r = ['kind'=>"Status", "message"=>"Secret " . $this->name . " Not Found"];
+		$r = ['kind'=>"Secret", "message"=>"Secret " . $this->name . " Not Found"];
 		if($del) {
 			if($this->exists) $r = $k8sClient->secrets()->deleteByName($this->name);
 		} elseif($this->exists) {
@@ -1068,9 +1069,11 @@ function UpdateKubestatus($ret, $class, $id) {
 	// 如果存在kind=>Status的结果，说明有对象更新异常
 	foreach($ret as $val) {
 		if($val['kind'] == 'Status') {
-			$stat = "WARN";
-			$bgcolor = "#ff0000";
-			break;
+			if(array_key_exists('message', $val)) {
+				$stat = "WARN";
+				$bgcolor = "#ff0000";
+				break;
+			}
 		}
 	}
 	$kubestatus = '<p><strong><span style="color:#ffffff"><span style="background-color:' . $bgcolor . '"> ' . $stat . ' </span></span></strong></p>';
