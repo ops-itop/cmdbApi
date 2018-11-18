@@ -1029,6 +1029,7 @@ function CreateEvent($log) {
 	}
 
 	$message = implode("\n", $description);
+	if(!$message) $message = "nothing to do";
 
 	$fields = array(
 		"message" => $message,
@@ -1100,7 +1101,7 @@ if($data['flag_kubestatus'] != "MANUAL" && !$BATCH && !$del) {
 		sleep(1);
 	}
 	if($data['flag_kubestatus'] != "MANUAL") {
-		file_put_contents($log, $config['datetime'] . " - $ID - flag_kubestatus set, exit;\n", FILE_APPEND);
+		file_put_contents($log, $config['datetime'] . " - $ID - flag_kubestatus set, exit; - " . json_encode($data) . "\n", FILE_APPEND);
 		die();
 	}
 }
