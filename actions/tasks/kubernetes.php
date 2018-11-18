@@ -56,7 +56,7 @@ abstract class iTopK8S {
 			$this->result[] = $val;
 		}
 	}
-	
+
 	function get($attr) {
 		if(!isset($this->$attr)){
 			return(NULL);
@@ -500,6 +500,7 @@ class iTopKubernetes extends itopK8s {
 		// 考虑先下线后上线，下线步骤删除所有ingress的情况，上线步骤应上线所有ingress
 		$ingressData = $this->PrivateIngress();
 		$privateIngress = new iTopIngress($ingressData);
+
 		$this->dealResult($privateIngress->run());
 
 		foreach($this->data['ingress_list'] as $val) {
@@ -528,10 +529,9 @@ class iTopKubernetes extends itopK8s {
 
 		// 注意顺序 secret要先建立
 		$this->_updateSecret($k8sClient);
-		$this->_updateDeployment($k8sClient);		
+		$this->_updateDeployment($k8sClient);
 		$this->_updateService($k8sClient);
 		$this->_updateIngress($k8sClient);
-
 
 		// 设置默认HPA
 		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
@@ -547,7 +547,6 @@ class iTopSecret extends itopK8s {
 	private $secret;
 	private $data;      // secret数据
 	private $isYaml = false;
-	private $errno = 100;
 
 	function __construct($data) {
 		$this->data = $data['data'];
@@ -557,6 +556,9 @@ class iTopSecret extends itopK8s {
 		if($data['name']) {
 			$this->name = $data['applicationsolution_name'] . "-" . $data['name'];
 		}
+
+		// 加前缀 便于区分
+		$this->name = SECRET_PRE . $this->name;
 
 		$this->ns = $data['k8snamespace_name'];
 
@@ -595,9 +597,10 @@ class iTopSecret extends itopK8s {
 		];
 	}
 
-	function deallog($r, $k) {
+	function deallog($r) {
 		if($r['kind'] == "Secret") {
-			return ["kind"=>"Secret", "message"=>"update Secret $k." . $r['metadata']['name'] . " successful"];
+			// 不在iTop事件日志中记录secret内容
+			unset($r['data']);return $r;
 		}
 		return $r;
 	}
@@ -618,13 +621,15 @@ class iTopSecret extends itopK8s {
 		$exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
 		$r = ['kind'=>"Secret", "metadata"=>["name"=>$this->name]];
 		if($del) {
-			if($exists) $r = $k8sClient->secrets()->deleteByName($this->name);
+			if($exists) {
+				$r = $k8sClient->secrets()->deleteByName($this->name);
+			}
 		} elseif($exists) {
 			$r = $k8sClient->secrets()->update($secret);
 		} else {
 			$r = $k8sClient->secrets()->create($secret);
 		}
-		$this->result[] = $this->deallog($r, $this->name);
+		$this->result[] = $this->deallog($r);
 		return ($this->result);
 	}
 }
@@ -848,6 +853,7 @@ class iTopIngress extends iTopK8S {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 		$ingress = new Ingress($this->ingress);
+
 		if($del) {
 			$this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
 		} else {
@@ -983,18 +989,23 @@ function CreateEvent($log) {
 	$action_id = $trigger['fields']['action_list'][0]['action_id'];
 
 	global $ID;
-	$d = json_decode($log, true);
 	$description = [];
-	foreach($d['msg'] as $k => $v) {
+	foreach($log as $k => $v) {
 		if($v['kind'] == "Status") {
-			$description[] = $v['message']['message'];
+			$description[] = $v['message'];
 		} else {
 			$description[] = "Update " . $v['kind'] . " " . $v['metadata']['name'] . " successful";
 		}
+		if(array_key_exists("spec", $v)) {
+			// 去除spec内容，不然log太多
+			unset($log[$k]['spec']);
+		}
+		if(array_key_exists("status", $v)) {
+			unset($log[$k]['status']);
+		}
 	}
 
-	//print_r($description);die();
-	$message = implode(",", $description);
+	$message = implode("\n", $description);
 
 	$fields = array(
 		"message" => $message,
@@ -1003,7 +1014,7 @@ function CreateEvent($log) {
 		"trigger_id" => $trigger_id,
 		"action_id" => $action_id,
 		"object_id" => $ID,
-		"log" => $log
+		"log" => json_encode($log, JSON_PRETTY_PRINT)
 	);
 	$data = $iTopAPI->coreCreate("EventNotificationShellExec", $fields);
 	return $data;
@@ -1028,13 +1039,15 @@ function GetData($ID, $sClass="Kubernetes") {
 
 // 更新部署状态到iTop
 function UpdateKubestatus($ret, $class, $id) {
-	$ret = json_decode($ret, true);
-	if($ret['errno'] == 0) {
-		$stat = "SUCC";
-		$bgcolor = "#59db8f";
-	} else {
-		$stat = "WARN";
-		$bgcolor = "#ff0000";
+	$stat = "SUCC";
+	$bgcolor = "#59db8f";
+	// 如果存在kind=>Status的结果，说明有对象更新异常
+	foreach($ret as $val) {
+		if($val['kind'] == 'Status') {
+			$stat = "WARN";
+			$bgcolor = "#ff0000";
+			break;
+		}
 	}
 	$kubestatus = '<p><strong><span style="color:#ffffff"><span style="background-color:' . $bgcolor . '"> ' . $stat . ' </span></span></strong></p>';
 	$flag_kubestatus = "AUTOUPDATE";
@@ -1081,17 +1094,13 @@ if($finalclass == "Deployment") {
 	$itopK8s = new iTopKubernetes($data);
 }
 
-// $ret 格式 :
-// ['errno'=>0, 'msg'=>[]]
 try {
 	$ret = $itopK8s->run($del);
 } catch(Exception $e) {
-	$message = json_decode($e->getMessage());
+	$message = json_decode($e->getMessage(), true);
 	if(!$message) $message = $e->getMessage();
-	$ret = ['errno'=>100,'msg'=>[['kind'=>'Status', 'message'=>$message]]];
-	$ret = json_encode($ret);
+	$ret = [$message];
 }
-print_r($ret);die();
 $itopEvent = CreateEvent($ret);
 
 // 下线操作不写kubestatus
@@ -1105,7 +1114,8 @@ if($del) {
 
 if($DEBUG) { print_r($ret); }
 
-file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
+$retStr = json_encode($ret);
+file_put_contents($log, $config['datetime'] . " - $ID - $retStr\n", FILE_APPEND);
 file_put_contents($log, $config['datetime'] . " - $ID - $itopEvent\n", FILE_APPEND);
 file_put_contents($log, $config['datetime'] . " - $ID - $updateStatus\n", FILE_APPEND);
 ?>
