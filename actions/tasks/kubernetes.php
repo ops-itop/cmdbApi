@@ -429,6 +429,7 @@ class iTopKubernetes extends itopK8s {
 		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
 		$data['serviceport'] = $this->_getports('service')[0]['port'];
 		$data['ingressannotations_list'] = $this->data['ingressannotations_list'];
+		$data['status'] = 'production'; // 私有ingress保持production状态
 		return $data;
 	}
 
@@ -636,7 +637,7 @@ class iTopSecret extends itopK8s {
 		$r = ['kind'=>"Status", "message"=>"Secret " . $this->name . " Not Found"];
 		if($del) {
 			if($this->exists) $r = $k8sClient->secrets()->deleteByName($this->name);
-		} elseif($exists) {
+		} elseif($this->exists) {
 			$r = $k8sClient->secrets()->update($secret);
 		} else {
 			$r = $k8sClient->secrets()->create($secret);
@@ -867,6 +868,12 @@ class iTopIngress extends iTopK8S {
 		$ingress = new Ingress($this->ingress);
 		$this->exists = $k8sClient->ingresses()->exists($ingress->getMetadata('name'));
 
+		// 因为iTopKubernetes中_updateIngress要将Deployment ingress_list中的所有对象都上线，
+		// 所以即使没有del=true，当对象状态为stock时需也需要del，防止误上线
+		if($this->data['status'] == 'stock') {
+			$del = true;
+		}
+
 		if($del) {
 			if($this->exists) $this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
 		} elseif($this->exists) {
@@ -1006,8 +1013,7 @@ function CreateEvent($log) {
 		if($v['kind'] == "Status") {
 			if(array_key_exists('message', $v)) {
 				$description[] = $v['message'];
-			}
-			if(array_key_exists('status', $v)) {
+			} elseif(array_key_exists('status', $v)) {
 				$description[] = "Delete " . $v['details']['kind'] . " " . $v['details']['name'] . "  " . $v['status'];
 			}
 		} else {
