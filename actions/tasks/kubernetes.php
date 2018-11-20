@@ -898,6 +898,9 @@ class iTopIngressAnnotations {
 
 	function run() {
 		foreach($this->data as $val) {
+			if($val['enable'] != 'yes') {
+				continue; // 解决暂时下线某项配置，以后可能还用的场景
+			}
 			if($val['value']) {
 				$v = $val['value'];
 			} else {
