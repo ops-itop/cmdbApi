@@ -413,8 +413,10 @@ class iTopKubernetes extends itopK8s {
 
 		$lifecycle = $this->_getlifecycle();
 		if($lifecycle) {
-			$this->deployment['spec']['template']['spec']['containers']['lifecycle'] = $lifecycle;
+			$this->deployment['spec']['template']['spec']['containers'][0]['lifecycle'] = $lifecycle;
 		}
+
+		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = 60;
 	}
 
 	function Service() {
