@@ -332,6 +332,17 @@ class iTopKubernetes extends itopK8s {
 		return $data;
 	}
 
+	private function _getlifecycle() {
+		$lifecycle =  [
+			'preStop' => [
+				'exec' => [
+					'command' => ['sleep','30']
+				]
+			]
+		];
+		return $lifecycle;
+	}
+
 	function Deployment() {
 		global $PULLPOLICY;
 		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
@@ -398,6 +409,11 @@ class iTopKubernetes extends itopK8s {
 		$securitycontext = $this->_defaultasecuritycontext();
 		if($securitycontext) {
 			$this->deployment['spec']['template']['spec']['securityContext'] = $securitycontext;
+		}
+
+		$lifecycle = $this->_getlifecycle();
+		if($lifecycle) {
+			$this->deployment['spec']['template']['spec']['containers']['lifecycle'] = $lifecycle;
 		}
 	}
 
