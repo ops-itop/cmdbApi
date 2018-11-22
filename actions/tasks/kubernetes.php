@@ -804,7 +804,7 @@ class iTopProbe {
 				}
 			}
 		}
-		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_readiness_initdelay",20),"periodSeconds" => _getconfig("kubernetes_readiness_period", 5)];
+		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_readiness_initdelay",30),"periodSeconds" => _getconfig("kubernetes_readiness_period", 5)];
 	}
 
 	function livenessProbe() {
@@ -815,7 +815,7 @@ class iTopProbe {
 				}
 			}
 		}
-		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_liveness_period", 20),"periodSeconds" => _getconfig("kubernetes_liveness_period", 5)];
+		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_liveness_period", 60),"periodSeconds" => _getconfig("kubernetes_liveness_period", 5)];
 	}
 }
 
