@@ -333,10 +333,14 @@ class iTopKubernetes extends itopK8s {
 	}
 
 	private function _getlifecycle() {
+		$sec = '45';
+		if(array_key_exists("prestop", $this->data) && $this->data['preStop']) {
+			$sec = (string)$this->data['preStop'];
+		}
 		$lifecycle =  [
 			'preStop' => [
 				'exec' => [
-					'command' => ['sleep','30']
+					'command' => ['sleep',$sec]
 				]
 			]
 		];
@@ -416,7 +420,11 @@ class iTopKubernetes extends itopK8s {
 			$this->deployment['spec']['template']['spec']['containers'][0]['lifecycle'] = $lifecycle;
 		}
 
-		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = 60;
+		$graceperiod = 90;
+		if(array_key_exists('graceperiod', $this->data) && $this->data['graceperiod']) {
+			$graceperiod = $this->data['graceperiod'];
+		}
+		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $graceperiod;
 	}
 
 	function Service() {
@@ -804,7 +812,7 @@ class iTopProbe {
 				}
 			}
 		}
-		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_readiness_initdelay",30),"periodSeconds" => _getconfig("kubernetes_readiness_period", 5)];
+		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_readiness_initdelay",50),"periodSeconds" => _getconfig("kubernetes_readiness_period", 5)];
 	}
 
 	function livenessProbe() {
