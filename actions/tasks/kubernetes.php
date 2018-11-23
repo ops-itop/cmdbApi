@@ -532,7 +532,10 @@ class iTopKubernetes extends itopK8s {
 		$ingressData = $this->PrivateIngress();
 		$privateIngress = new iTopIngress($ingressData);
 
-		$this->dealResult($privateIngress->run());
+		// 存在domain_name为空的情况，此时不创建privateIngress
+		if($ingressData['domain_name']) {
+			$this->dealResult($privateIngress->run());
+		}
 
 		foreach($this->data['ingress_list'] as $val) {
 			$ing = new iTopIngress($val);
