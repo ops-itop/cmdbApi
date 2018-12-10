@@ -1043,6 +1043,10 @@ function CreateEvent($log) {
 	global $ID;
 	$description = [];
 	foreach($log as $k => $v) {
+		if(!is_array($v) || !array_key_exists("kind", $v)) {
+			$description[] = $v;
+			continue;
+		}
 		if($v['kind'] == "Status") {
 			if(array_key_exists('message', $v)) {
 				$description[] = $v['message'];
@@ -1095,24 +1099,36 @@ function GetData($ID, $sClass="Kubernetes") {
 }
 
 // 更新部署状态到iTop
-function UpdateKubestatus($ret, $class, $id) {
-	$stat = "SUCC";
-	$bgcolor = "#59db8f";
+function UpdateKubestatus($ret, $class, $id, $status) {
+	$stat = "production";
 	// 如果存在kind=>Status的结果，说明有对象更新异常
 	foreach($ret as $val) {
+		if(!is_array($val) || !array_key_exists("kind", $val)) {
+			$stat = "error";
+			break;
+		}
 		if($val['kind'] == 'Status') {
 			if(array_key_exists('message', $val)) {
-				$stat = "WARN";
-				$bgcolor = "#ff0000";
+				$stat = "error";
 				break;
 			}
 		}
 	}
-	$kubestatus = '<p><strong><span style="color:#ffffff"><span style="background-color:' . $bgcolor . '"> ' . $stat . ' </span></span></strong></p>';
 	$flag_kubestatus = "AUTOUPDATE";
 
-	global $iTopAPI;
-	return $iTopAPI->coreUpdate($class, $id, array('kubestatus'=>$kubestatus, 'flag_kubestatus'=>$flag_kubestatus));
+	// 当状态有变时才更新
+	if($status != $stat) {
+		$ev = 'ev_update';
+		if($stat == 'error') {
+			$ev = 'ev_error';
+		}
+		global $iTopAPI;
+		$stimulus = $iTopAPI->coreApply_stimulus($class,$id, array("flag_kubestatus"=>$flag_kubestatus),$ev);
+		// 删除脚本启动的通知日志，通知页面太乱了
+		$d = $iTopAPI->coreDelete('EventNotificationShellExec', "SELECT EventNotificationShellExec WHERE object_id=$id AND message LIKE 'Script%successfully started.'");
+		return $stimulus;
+	}
+	return "UpdateKubestatus: nothing to do";
 }
 
 $data = GetData($ID);
@@ -1162,13 +1178,14 @@ try {
 }
 $itopEvent = CreateEvent($ret);
 
+
 // 下线操作不写kubestatus
 // 因为下线操作不能更新flag_kubestatus，当del=true时，不检查flag_kubestatus
 // 但这样又会造成循环更新，因此如果是del，就不更新iTop了，防止无限循环
 if($del) {
 	$updateStatus = "action stock";
 } else {
-	$updateStatus = UpdateKubestatus($ret, $finalclass, $ID);
+	$updateStatus = UpdateKubestatus($ret, $finalclass, $ID, $data['status']);
 }
 
 if($DEBUG) { print_r($ret); }
