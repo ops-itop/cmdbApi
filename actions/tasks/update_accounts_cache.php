@@ -16,12 +16,20 @@ $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
 $script = explode("/", $argv[0]);
 $log = dirname(__FILE__) . '/../' . $config['tasklogdir'] . "/" .  end($script) . ".log";
-
+$INTERVAL = getenv("INTERVAL");
+if(!$INTERVAL) $INTERVAL = 30;
 // 可能是缓存原因，接口返回数据没有变化，导致用户删除自己负责的app时未更新contacts字段, 所以这里等几秒
 if(!$DEBUG)
 {
 	sleep($config['update']['delay']);
 }
 
+// 清除过期EventNotificationShellExec对象
+$query = "SELECT EventNotificationShellExec WHERE date < DATE(DATE_SUB(NOW(), INTERVAL $INTERVAL DAY))";
+$d = $iTopAPI->coreDelete("EventNotificationShellExec", $query);
+
+if($DEBUG) {print_r($d);}
+
 $ret = accountsSetCache($ID);
 file_put_contents($log, $config['datetime'] . " - $ID - $ret\n", FILE_APPEND);
+file_put_contents($log, $config['datetime'] . " - $ID - $d\n", FILE_APPEND);
