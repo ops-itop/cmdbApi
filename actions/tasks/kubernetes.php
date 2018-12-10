@@ -1116,6 +1116,9 @@ function UpdateKubestatus($ret, $class, $id, $status) {
 	}
 	$flag_kubestatus = "AUTOUPDATE";
 
+	$global iTopAPI;
+
+	$stimulus = "UpdateKubestatus: nothing to do";
 	// 当状态有变时才更新
 	if($status != $stat) {
 		$ev = 'ev_update';
@@ -1124,12 +1127,12 @@ function UpdateKubestatus($ret, $class, $id, $status) {
 		}
 		global $iTopAPI;
 		$stimulus = $iTopAPI->coreApply_stimulus($class,$id, array("flag_kubestatus"=>$flag_kubestatus),$ev);
-		// 删除脚本启动的通知日志，通知页面太乱了
-		$oql = "SELECT EventNotificationShellExec AS e JOIN TriggerOnObject AS t ON e.trigger_id=t.id WHERE t.target_class='Kubernetes' AND e.object_id=$id AND message LIKE 'Script%successfully started.'";
-		$d = $iTopAPI->coreDelete('EventNotificationShellExec', $oql);
-		return $stimulus;
 	}
-	return "UpdateKubestatus: nothing to do";
+
+	// 删除脚本启动的通知日志，通知页面太乱了
+	$oql = "SELECT EventNotificationShellExec AS e JOIN TriggerOnObject AS t ON e.trigger_id=t.id WHERE t.target_class='Kubernetes' AND e.object_id=$id AND message LIKE 'Script%successfully started.'";
+	$d = $iTopAPI->coreDelete('EventNotificationShellExec', $oql);
+	return $stimulus;
 }
 
 $data = GetData($ID);
