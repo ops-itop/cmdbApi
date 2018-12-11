@@ -116,6 +116,12 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		$zbxServer['model_id'] = array("name" => $zbxServer['model_name'], "brand_name" => $zbxServer['brand_name']);
 		$zbxServer['osfamily_id'] = array("name" => $zbxServer['osfamily_name']);
 		$zbxServer['osversion_id'] = array("name" => $zbxServer['osversion_name'], "osfamily_name" => $zbxServer['osfamily_name']);
+
+		// 只读变量在iTop 2.5以后会报错，需删除（Error: model_name: Attempting to set the value on the read-only attribute Server::model_name）
+		unset($zbxServer['brand_name']);
+		unset($zbxServer['model_name']);
+		unset($zbxServer['osfamily_name']);
+		unset($zbxServer['osversion_name']);
 		$ret = $iTopAPI->coreUpdate("Server", $key, $zbxServer);
 		$ret = json_decode($ret, true)['message'];
 		if($zbxServer['hostname'] != $cmdbServer['hostname'])

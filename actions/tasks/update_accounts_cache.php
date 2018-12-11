@@ -26,7 +26,9 @@ if(!$DEBUG)
 
 // 清除过期EventNotificationShellExec对象
 $query = "SELECT EventNotificationShellExec WHERE date < DATE(DATE_SUB(NOW(), INTERVAL $INTERVAL DAY))";
+$serverQuery = "SELECT EventNotificationShellExec AS e JOIN TriggerOnObject AS t ON e.trigger_id=t.id WHERE t.target_class='Server' AND date < DATE(DATE_SUB(NOW(), INTERVAL 1 DAY))";
 $d = $iTopAPI->coreDelete("EventNotificationShellExec", $query);
+$sd = $iTopAPI->coreDelete("EventNotificationShellExec", $serverQuery);
 
 if($DEBUG) {print_r($d);}
 
