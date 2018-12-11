@@ -1116,7 +1116,7 @@ function UpdateKubestatus($ret, $class, $id, $status) {
 	}
 	$flag_kubestatus = "AUTOUPDATE";
 
-	$global iTopAPI;
+	global $iTopAPI;
 
 	$stimulus = "UpdateKubestatus: nothing to do";
 	// 当状态有变时才更新
