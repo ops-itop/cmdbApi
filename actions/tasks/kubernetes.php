@@ -282,7 +282,7 @@ class iTopKubernetes extends iTopK8s {
 		if(!$this->data['hostaliases']) return $hostaliases;
 		$hosts = yaml_parse($this->data['hostaliases']);
 		if(is_array($hosts)) {
-			foreach($hosts as $ip => $domain) {
+			foreach($hosts as $domain => $ip) {
 				$hostaliases[]=["ip" => $ip, "hostnames"=>["$domain"]];
 			}
 		}
