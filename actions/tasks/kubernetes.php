@@ -66,7 +66,119 @@ abstract class iTopK8S {
 	}
 }
 
-class iTopKubernetes extends itopK8s {
+class iTopService extends iTopK8s {
+	protected $sessionAffinity = "None";   //ClientIP并不好用，不能解决ipvs高延迟问题，还会带来新的问题，流量不均，影响更坏
+	protected $service;
+	protected $serviceName;
+	protected $ports = [];
+	private $data;
+	private $postfix = "";
+	private $selector = true;
+
+	function __construct($data) {
+		$this->app = $data['applicationsolution_name'];
+		$this->ns = $data['k8snamespace_name'];
+		$this->data = $data;
+
+		// Ingress管理的Service做特殊处理
+		if($this->data['finalclass'] == 'Ingress') {
+			$ports = $this->data['serviceport'];
+			$this->postfix = _getconfig("ingress_external_prefix", "-ingress-for-external");
+			$this->selector = false;
+		} else {
+			$ports = $this->data['containerport'];
+		}
+		$ports = explode(",", $ports);
+		foreach($ports as $k => $v) {
+			$this->ports[] = ['port' => (int) $v, 'targetPort'=>(int) $v];
+		}
+
+		$this->serviceName = $this->app . $this->postfix;
+	}
+
+	private function endpoints($ips) {
+		global $k8sClient;
+		$k8sClient->setNamespace($this->ns);
+
+		$ip_list = explode("\n", $ips);
+		$addresses = [];
+		foreach($ip_list as $ip) {
+			$addresses[] = ['ip' => $ip];
+		}
+
+		$ports = [];
+		foreach($this->ports as $v) {
+			$ports[] = ['port' => $v['targetPort'], 'protocol' => 'TCP'];
+		}
+
+		$endpoints = [
+			'metadata' => [
+				'namespace' => $this->ns,
+				'name' => $this->serviceName
+			],
+			'subsets' => [
+				[
+					'addresses' => $addresses,
+					'ports' => $ports
+				]
+			]
+		];
+
+		$ep = new Endpoint($endpoints);
+		$exists = $k8sClient->endpoints()->exists($ep->getMetadata('name'));
+		if($exists) {
+			$this->result[] = $k8sClient->endpoints()->update($ep);
+		} else {
+			$this->result[] = $k8sClient->endpoints()->create($ep);
+		}
+	}
+
+	function Service($selector=true) {
+		$this->service = [
+			'metadata' => [
+				'name' => $this->serviceName,
+				'namespace' => $this->ns,
+				'labels' => [
+					'app' => $this->app
+				]
+			],
+			'spec' => [
+				'ports' => $this->ports,
+				'selector' => [
+					'app' => $this->app
+				],
+				"sessionAffinity" => $this->sessionAffinity
+			]
+		];
+
+		// 通过Ingress创建的Service没有selector，并且使用后缀
+		if(!$selector) {
+			unset($this->service['spec']['selector']);
+			$this->endpoints($this->data['endpoints']);
+		}
+	}
+
+	function run($del = false) {
+		global $k8sClient;
+		$k8sClient->setNamespace($this->ns);
+
+		$this->Service($this->selector);
+		$service = new Service($this->get('service'));
+		$this->exists = $k8sClient->services()->exists($service->getMetadata('name'));
+
+		if($del) {
+			if($this->exists) $this->result[] = $k8sClient->services()->deleteByName($hpa->getMetadata('name'));
+		} elseif($this->exists) {
+			$this->result[] = $k8sClient->services()->patch($service);
+		} else {
+			$this->result[] = $k8sClient->services()->create($service);
+		}
+
+		return ($this->result);
+	}
+}
+
+class iTopKubernetes extends iTopK8s {
 	private $data;
 	protected $deployment;
 	protected $service;
@@ -77,8 +189,6 @@ class iTopKubernetes extends itopK8s {
 	private $hostNetwork = false;
 	private $livenessProbe;
 	private $readinessProbe;
-	private $sessionAffinity = "None";   //ClientIP并不好用，不能解决ipvs高延迟问题，还会带来新的问题，流量不均，影响更坏
-	protected $exists_service;
 
 	function __construct($data) {
 		$this->app = $data['applicationsolution_name'];
@@ -427,25 +537,6 @@ class iTopKubernetes extends itopK8s {
 		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $graceperiod;
 	}
 
-	function Service() {
-		$this->service = [
-			'metadata' => [
-				'name' => $this->app,
-				'namespace' => $this->data['k8snamespace_name'],
-				'labels' => [
-					'app' => $this->app
-				]
-			],
-			'spec' => [
-				'ports' => $this->_getports('service'),
-				'selector' => [
-					'app' => $this->app
-				],
-				"sessionAffinity" => $this->sessionAffinity
-			]
-		];
-	}
-
 	function PrivateIngress() {
 		$data = [];
 		$data['applicationsolution_name'] = $this->app;
@@ -481,12 +572,9 @@ class iTopKubernetes extends itopK8s {
 			$this->dealResult($ing->run($del));
 		}
 
-		// 删除部署和对应服务
+		// 删除部署
 		if($this->exists) {
 			$this->result[] = $k8sClient->deployments()->deleteByName($this->app);
-		}
-		if($this->exists_service) {
-			$this->result[] = $k8sClient->services()->deleteByName($this->app);
 		}
 
 		// replicaSet 和 Pod 需要单独删除
@@ -516,14 +604,6 @@ class iTopKubernetes extends itopK8s {
 			$this->result[] = $k8sClient->deployments()->update($deployment);
 		} else {
 			$this->result[] = $k8sClient->deployments()->create($deployment);
-		}
-	}
-
-	private function _updateService($k8sClient, $service) {
-		if($this->exists_service) {
-			$this->result[] = $k8sClient->services()->patch($service);
-		} else {
-			$this->result[] = $k8sClient->services()->create($service);
 		}
 	}
 
@@ -561,11 +641,12 @@ class iTopKubernetes extends itopK8s {
 
 		$this->Deployment();
 		$deployment = new Deployment($this->get('deployment'));
-		$this->Service();
-		$service = new Service($this->get('service'));
 
 		$this->exists = $k8sClient->deployments()->exists($deployment->getMetadata('name'));
-		$this->exists_service = $k8sClient->services()->exists($service->getMetadata('name'));
+
+		// 管理Service
+		$service = new iTopService($this->data);
+		$this->dealResult($service->run($del));
 
 		if($del) {
 			$this->_delete($k8sClient);
@@ -573,7 +654,6 @@ class iTopKubernetes extends itopK8s {
 		}
 
 		$this->_updateDeployment($k8sClient, $deployment);
-		$this->_updateService($k8sClient, $service);
 		$this->_updateIngress($k8sClient);
 
 		// 设置默认HPA
@@ -585,7 +665,7 @@ class iTopKubernetes extends itopK8s {
 	}
 }
 
-class iTopSecret extends itopK8s {
+class iTopSecret extends iTopK8s {
 	private $name;
 	protected $secret;
 	private $data;      // secret数据
@@ -834,12 +914,13 @@ class iTopIngress extends iTopK8S {
 	private $data;
 	private $name;
 	private $ingress;
+	private $serviceName;
 
 	function __construct($data) {
 		$this->data = $data;
+		$this->serviceName = $data['applicationsolution_name'];
 		$this->ingress = [];
 		$this->getName();
-		$this->Ingress();
 	}
 
 	private function getName() {
@@ -863,7 +944,7 @@ class iTopIngress extends iTopK8S {
 					[
 						'path' => $data['location'],
 						'backend' => [
-							'serviceName' => $data['applicationsolution_name'],
+							'serviceName' => $this->serviceName,
 							'servicePort' => (int)$data['serviceport']
 						]
 					]
@@ -895,6 +976,19 @@ class iTopIngress extends iTopK8S {
 	function run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
+
+		// 根据manage_svc做不同处理
+		if($this->data['manage_svc'] != 'no') {
+			$service = new iTopService($this->data);
+			if($this->data['manage_svc'] == "clean") {
+				$service->run(true);
+			} else {
+				$service->run($del);
+			}
+			$this->serviceName = $service->get('serviceName');
+		}
+
+		$this->Ingress();
 		$ingress = new Ingress($this->ingress);
 		$this->exists = $k8sClient->ingresses()->exists($ingress->getMetadata('name'));
 
@@ -941,7 +1035,7 @@ class iTopIngressAnnotations {
 	}
 }
 
-class iTopHPA extends itopK8s {
+class iTopHPA extends iTopK8s {
 	private $data;
 	private $hpa;
 	private $min;
