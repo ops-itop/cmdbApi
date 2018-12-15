@@ -16,6 +16,7 @@ use Maclof\Kubernetes\Models\Service;
 use Maclof\Kubernetes\Models\Ingress;
 use Maclof\Kubernetes\Models\Secret;
 use Maclof\Kubernetes\Models\HorizontalPodAutoscaler;
+use Maclof\Kubernetes\Models\Endpoint;
 
 $ID = getenv("ID");
 $DEBUG = getenv("DEBUG");
@@ -100,6 +101,7 @@ class iTopService extends iTopK8s {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->ns);
 
+		$ips = str_replace("\r\n", "\n", $ips);
 		$ip_list = explode("\n", $ips);
 		$addresses = [];
 		foreach($ip_list as $ip) {
@@ -167,7 +169,7 @@ class iTopService extends iTopK8s {
 		$this->exists = $k8sClient->services()->exists($service->getMetadata('name'));
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->services()->deleteByName($hpa->getMetadata('name'));
+			if($this->exists) $this->result[] = $k8sClient->services()->deleteByName($service->getMetadata('name'));
 		} elseif($this->exists) {
 			$this->result[] = $k8sClient->services()->patch($service);
 		} else {
@@ -547,6 +549,7 @@ class iTopKubernetes extends iTopK8s {
 		$data['serviceport'] = $this->_getports('service')[0]['port'];
 		$data['ingressannotations_list'] = $this->data['ingressannotations_list'];
 		$data['status'] = 'production'; // 私有ingress保持production状态
+		$data['manage_svc'] = 'no';   //私有ingress不管理svc
 		return $data;
 	}
 
@@ -981,9 +984,9 @@ class iTopIngress extends iTopK8S {
 		if($this->data['manage_svc'] != 'no') {
 			$service = new iTopService($this->data);
 			if($this->data['manage_svc'] == "clean") {
-				$service->run(true);
+				$this->dealResult($service->run(true));
 			} else {
-				$service->run($del);
+				$this->dealResult($service->run($del));
 			}
 			$this->serviceName = $service->get('serviceName');
 		}
