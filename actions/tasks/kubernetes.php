@@ -94,7 +94,7 @@ class iTopService extends iTopK8s {
 			$this->ports[] = ['port' => (int) $v, 'targetPort'=>(int) $v];
 		}
 
-		$this->serviceName = $this->app . $this->postfix;
+		$this->serviceName = str_replace("_", "-", $this->app) . $this->postfix;
 	}
 
 	private function endpoints($ips) {
@@ -921,7 +921,7 @@ class iTopIngress extends iTopK8S {
 
 	function __construct($data) {
 		$this->data = $data;
-		$this->serviceName = $data['applicationsolution_name'];
+		$this->serviceName = str_replace("_", "-", $data['applicationsolution_name']);
 		$this->ingress = [];
 		$this->getName();
 	}
