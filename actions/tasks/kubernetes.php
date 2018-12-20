@@ -55,7 +55,8 @@ abstract class iTopK8S {
 
 	function __construct($data) {
 		$this->data = $data;
-		$this->app = $data['applicationsolution_name'];
+		// app名称中不应该出现下划线
+		$this->app = str_replace("_", "-", $data['applicationsolution_name']);
 		$this->ns = $data['k8snamespace_name'];
 
 		global $k8sClient;
@@ -99,17 +100,19 @@ class iTopService extends iTopK8s {
 		// Ingress管理的Service做特殊处理
 		if($this->data['finalclass'] == 'Ingress') {
 			$ports = $this->data['serviceport'];
-			$this->postfix = _getconfig("ingress_external_prefix", "-ingress-for-external");
+			// 考虑到同一个app可能添加了多个外部负载，用ingress name加后缀作为外部服务的Service名称
+			$this->postfix = _getconfig("ingress_external_prefix", "-forexternal");
+			// DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character
+			$this->serviceName = str_replace(".", "-", $data['name']) . $this->postfix;
 			$this->selector = false;
 		} else {
 			$ports = $this->data['containerport'];
+			$this->serviceName = $this->app;
 		}
 		$ports = explode(",", $ports);
 		foreach($ports as $k => $v) {
 			$this->ports[] = ['port' => (int) $v, 'targetPort'=>(int) $v];
 		}
-
-		$this->serviceName = str_replace("_", "-", $this->app) . $this->postfix;
 	}
 
 	private function UpdateEndpoints($ips) {
@@ -717,7 +720,6 @@ class iTopDeployment extends iTopController {
 			$this->result[] = $this->k8sClient->deployments()->create($deployment);
 		}
 
-		$this->UpdateService($del);
 		$this->UpdateIngress($del);
 
 		// 清理ReplicaSet 和 Pod
@@ -741,9 +743,9 @@ class iTopSecret extends iTopK8s {
 		$this->oData = $data['data'];
 
 		// 私有secret名称直接用app名称，公共secret用app名称加secret名称，Controller对象中私有secret调用时将data['name']设置为空值
-		$this->name = $data['applicationsolution_name'];
+		$this->name = $this->app;
 		if($data['name']) {
-			$this->name = $data['applicationsolution_name'] . "-" . $data['name'];
+			$this->name = $this->app . "-" . $data['name'];
 		}
 
 		// 加前缀 便于区分
@@ -981,14 +983,17 @@ class iTopIngress extends iTopK8S {
 
 	function __construct($data) {
 		parent::__construct($data);
-		$this->serviceName = str_replace("_", "-", $data['applicationsolution_name']);
+		$this->serviceName = $this->app;
 		$this->ingress = [];
 		$this->getName();
+		// 每一个外部服务负载均衡应对应唯一的Service，防止只用 app-后缀 方案可能存在的配置覆盖问题
+		// 用 IngressNmae-后缀 的方式提供唯一名称
+		$this->data['name'] = $this->name;
 	}
 
 	private function getName() {
 		$matches = [];
-		$this->name = $this->data['applicationsolution_name'] . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
+		$this->name = $this->app . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
 		$hash = substr(md5($this->name), 0, 5);
 		// By convention, the names of Kubernetes resources should be up to maximum length of 253 characters and consist of lower case alphanumeric characters, -, and .
 		preg_match_all('/[a-z0-9\.]+/', $this->name, $matches);
@@ -1127,8 +1132,6 @@ class iTopHPA extends iTopK8s {
 	}
 
 	function defaultHpa() {
-		$this->ns = $this->data['k8snamespace_name'];
-		$this->app = $this->data['applicationsolution_name'];
 		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
 		if($this->data['hostnetwork'] == 'true') {
 			$this->max = (int)$this->data['replicas'];
@@ -1141,8 +1144,6 @@ class iTopHPA extends iTopK8s {
 	}
 
 	function customHpa() {
-		$this->ns = $this->data['k8snamespace_name'];
-		$this->app = $this->data['applicationsolution_name'];
 		$this->min = $this->data['minreplicas'];
 		$this->max = $this->data['maxreplicas'];
 		$metrics = $this->data['metrics'];
