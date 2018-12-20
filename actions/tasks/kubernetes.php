@@ -46,24 +46,43 @@ $k8sClient = new Client([
 ]);
 
 abstract class iTopK8S {
+	protected $data;
 	protected $app;
 	protected $ns;
 	protected $result=[];
 	protected $exists;
+	protected $k8sClient;
 
-	function __construct() {}
+	function __construct($data) {
+		$this->data = $data;
+		// app名称中不应该出现下划线
+		$this->app = str_replace("_", "-", $data['applicationsolution_name']);
+		$this->ns = $data['k8snamespace_name'];
 
-	function dealResult($ret) {
+		global $k8sClient;
+		$this->k8sClient = $k8sClient;
+		$this->k8sClient->setNamespace($this->ns);
+	}
+
+	function DealResult($ret) {
 		foreach($ret as $val) {
 			$this->result[] = $val;
 		}
 	}
 
-	function get($attr) {
+	function Get($attr) {
 		if(!isset($this->$attr)){
 			return(NULL);
 		}
 		return $this->$attr;
+	}
+
+	function List2Str($l, $key) {
+		$s = [];
+		foreach($l as $k => $v) {
+			$s[] = $v[$key];
+		}
+		return implode(",", $s);
 	}
 }
 
@@ -72,34 +91,35 @@ class iTopService extends iTopK8s {
 	protected $service;
 	protected $serviceName;
 	protected $ports = [];
-	private $data;
 	private $postfix = "";
 	private $selector = true;
 
 	function __construct($data) {
-		$this->app = $data['applicationsolution_name'];
-		$this->ns = $data['k8snamespace_name'];
-		$this->data = $data;
+		parent::__construct($data);
 
 		// Ingress管理的Service做特殊处理
 		if($this->data['finalclass'] == 'Ingress') {
 			$ports = $this->data['serviceport'];
-			$this->postfix = _getconfig("ingress_external_prefix", "-ingress-for-external");
+			// 考虑到同一个app可能添加了多个外部负载，用ingress name加后缀作为外部服务的Service名称
+			$this->postfix = _getconfig("ingress_external_prefix", "-forexternal");
+			// DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character
+			$this->serviceName = str_replace(".", "-", $data['name']) . $this->postfix;
 			$this->selector = false;
 		} else {
 			$ports = $this->data['containerport'];
+			$this->serviceName = $this->app;
 		}
 		$ports = explode(",", $ports);
 		foreach($ports as $k => $v) {
 			$this->ports[] = ['port' => (int) $v, 'targetPort'=>(int) $v];
 		}
-
-		$this->serviceName = str_replace("_", "-", $this->app) . $this->postfix;
 	}
 
-	private function endpoints($ips) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
+	private function UpdateEndpoints($ips) {
+		// 没有填写endpoint时直接退出
+		if(!$ips) {
+			return '';
+		}
 
 		$ips = str_replace("\r\n", "\n", $ips);
 		$ip_list = explode("\n", $ips);
@@ -127,15 +147,15 @@ class iTopService extends iTopK8s {
 		];
 
 		$ep = new Endpoint($endpoints);
-		$exists = $k8sClient->endpoints()->exists($ep->getMetadata('name'));
+		$exists = $this->k8sClient->endpoints()->exists($ep->getMetadata('name'));
 		if($exists) {
-			$this->result[] = $k8sClient->endpoints()->update($ep);
+			$this->result[] = $this->k8sClient->endpoints()->update($ep);
 		} else {
-			$this->result[] = $k8sClient->endpoints()->create($ep);
+			$this->result[] = $this->k8sClient->endpoints()->create($ep);
 		}
 	}
 
-	function Service($selector=true) {
+	function Service($selector=true, $del = false) {
 		$this->service = [
 			'metadata' => [
 				'name' => $this->serviceName,
@@ -154,175 +174,110 @@ class iTopService extends iTopK8s {
 		];
 
 		// 通过Ingress创建的Service没有selector，并且使用后缀
-		if(!$selector) {
+		if(!$selector && !$del) {
 			unset($this->service['spec']['selector']);
-			$this->endpoints($this->data['endpoints']);
+			$this->UpdateEndpoints($this->data['endpoints']);
 		}
 	}
 
-	function run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
-
-		$this->Service($this->selector);
-		$service = new Service($this->get('service'));
-		$this->exists = $k8sClient->services()->exists($service->getMetadata('name'));
+	function Run($del = false) {
+		$this->Service($this->selector, $del);
+		$service = new Service($this->Get('service'));
+		$this->exists = $this->k8sClient->services()->exists($service->getMetadata('name'));
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->services()->deleteByName($service->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->services()->deleteByName($service->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->services()->patch($service);
+			$this->result[] = $this->k8sClient->services()->patch($service);
 		} else {
-			$this->result[] = $k8sClient->services()->create($service);
+			$this->result[] = $this->k8sClient->services()->create($service);
 		}
 
 		return ($this->result);
 	}
 }
 
-class iTopKubernetes extends iTopK8s {
-	private $data;
-	protected $deployment;
-	protected $service;
-	private $secrets;
-	private $domain;
-	private $mount;
-	private $env;
-	private $hostNetwork = false;
-	private $livenessProbe;
-	private $readinessProbe;
+class iTopController extends iTopK8s {
+	protected $affinity;
+	protected $image;
+	protected $resources;
+	protected $env = [];
+	protected $ports;
+	protected $volumes;
+	protected $imagePullPolicy;
+	protected $hostNetwork = false;
+	protected $livenessProbe;
+	protected $readinessProbe;
+	protected $hostAliases;
+	protected $strategy;
+	protected $securityContext;
+	protected $lifecycle;
+	protected $terminationGracePeriodSeconds;
+	protected $secrets = [];
+	protected $privateSecret;
 
 	function __construct($data) {
-		$this->app = $data['applicationsolution_name'];
-		$this->data = $data;
-		$this->_getdomain();
-		$this->secrets = [];
-		$this->env = [];
+		parent::__construct($data);
 
+		// 优先获取Secret，volume和env都依赖secret
+		$this->GetSecrets();
+
+		$this->GetImagePullPolicy();
+		$this->GetVolumes();
+		$this->GetEnvs();
+		$this->GetImage();
+		$this->GetResources();
+		$this->GetPorts();
+		$this->GetHostAliases();
+		$this->GetStrategy();
+		$this->GetSecurityContext();
+		$this->GetAffinity();
+		$this->GetHostNetwork();
+		$this->GetProbe();
+		$this->GetLifecycle();
+		$this->GetTerminationGracePeriodSeconds();
+	}
+
+	function GetSecrets() {
+		$data = [];
+		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
+		$data['applicationsolution_name'] = $this->app;
+		$data['data'] = $this->data['secret'];
+		$data['name'] = "";
+
+		// 获取私有secret
+		$this->privateSecret = new iTopSecret($data);
+		$this->secrets[] = $this->privateSecret->Get('secret');
+
+		// 公共secret
+		// ToDo
+	}
+
+	function GetImagePullPolicy() {
+		global $PULLPOLICY;
+		$this->imagePullPolicy = $PULLPOLICY;
+		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
+			$this->imagePullPolicy = "Always";
+		}
+	}
+
+	function GetVolumes() {
 		// 挂载volumes
 		$volumes = new iTopVolume($this->data['volume_list'], $this->app);
-		$this->mount = $volumes->run();
-
-		// hostNetwork
-		if($this->data['hostnetwork'] == "true") {
-			$this->hostNetwork = true;
-		}
-
-		// Probe
-		$probe = new iTopProbe($this->data);
-		$this->livenessProbe = $probe->livenessProbe();
-		$this->readinessProbe = $probe->readinessProbe();
-	}
-
-	// 挂载宿主机时区
-	private function _mounttz() {
-		$this->mount['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
-		$this->mount['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
-	}
-
-	private function _mountsecret() {
+		$this->volumes = $volumes->Run();
+		// 挂载宿主机时区
+		$this->volumes['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
+		$this->volumes['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
+		// 挂载secret
 		foreach($this->secrets as $key => $val) {
 			$secretName = $val['metadata']['name'];
 			$name = $secretName . "-appconfig";
-			$this->mount['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
-			$this->mount['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>$secretName]];
+			$this->volumes['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
+			$this->volumes['volumes'][] = ['name'=>$name,'secret'=>['secretName'=>$secretName]];
 		}
 	}
 
-	// 同时将secret写入环境变量
-	private function _secret2env($secret) {
-		if(!$secret) return;
-		// 只有存在有效数据的secret可以被挂载
-		if($secret['data']) {
-			$this->secrets[] = $secret;
-		}
-		foreach($secret['data'] as $k => $v) {
-			$this->env[] = [
-				'name' => $k,
-				'valueFrom' =>[
-					'secretKeyRef' => [
-						'name' => $secret['metadata']['name'],
-						'key' => $k
-					]
-				]
-			];
-		}
-	}
-
-	private function _getimage() {
-		$tag = $this->data['image_tag'];
-		if($tag == "") {
-			$tag = "latest";
-		}
-		return $this->data['image'] . ":" . $tag;
-	}
-
-	private function _getresources() {
-		$res = ['requests'=>[],'limits'=>[]];
-		$mem = $this->data['mem_request'] . "Mi";
-		$res['requests']['cpu'] = $this->data['cpu_request'];
-		$res['requests']['memory'] = $mem;
-		$res['limits']['cpu'] = $this->data['cpu_limit'];
-		$res['limits']['memory'] = $mem;
-		return $res;
-	}
-
-	private function _getports($objtype) {
-		$ports = explode(",", $this->data['containerport']);
-		$port_list = ['deployment'=>[], 'service'=>[]];
-		foreach($ports as $k => $v) {
-			$port_list['deployment'][] = ['containerPort' => (int) $v];
-			$port_list['service'][] = ['port' => (int) $v, 'targetPort'=>(int) $v];
-		}
-		return $port_list[$objtype];
-	}
-
-	private function _gethostaliases() {
-		$hostaliases = [];
-		if(!$this->data['hostaliases']) return $hostaliases;
-		$hosts = yaml_parse($this->data['hostaliases']);
-		if(is_array($hosts)) {
-			foreach($hosts as $domain => $ip) {
-				$hostaliases[]=["ip" => $ip, "hostnames"=>["$domain"]];
-			}
-		}
-		return $hostaliases;
-	}
-
-	private function _getrollingstrategy() {
-		$strategy = [];
-		$rolling_strategy = $this->data['rolling_strategy'];
-		if($rolling_strategy) {
-			$s = explode(":", $rolling_strategy);
-			$ns = [];
-			foreach($s as $val) {
-				if(!preg_match('/.*%$/',$val)) {
-					$ns[] = (int)$val;
-				} else {
-					$ns[] = $val;
-				}
-			}
-			$strategy = ["type" => "RollingUpdate",
-				"rollingUpdate"=>["maxUnavailable"=>$ns[0], "maxSurge"=>$ns[1]]
-			];
-		}
-		return $strategy;
-	}
-
-	private function _getdomain() {
-		$domain = explode("/", $this->data['url']);
-		$this->domain = end($domain);
-	}
-
-	private function _list2str($l, $key) {
-		$s = [];
-		foreach($l as $k => $v) {
-			$s[] = $v[$key];
-		}
-		return implode(",", $s);
-	}
-
-	private function _getenv() {
+	function GetEnvs() {
 		$envpod = [
 			'MY_NODE_NAME' => 'spec.nodeName',
 			'MY_POD_NAME' => 'metadata.name',
@@ -341,12 +296,11 @@ class iTopKubernetes extends iTopK8s {
 		$envstr = [
 			'APP_CONFIG_PATH' => APPCONFIG_PATH,
 			'APP_NAME' => $this->app,
-			'APP_DOMAIN' => $this->domain . "/," . $this->_list2str($this->data['ingress_list'], 'friendlyname'),
-			'APP_NAMESPACE' => $this->data['k8snamespace_name'],
+			'APP_NAMESPACE' => $this->ns,
 			'APP_ORG' => $this->data['organization_name'],
 			'APP_DESCRIPTION' => str_replace(array("\r", "\n", "\r\n"), " ", $this->data['description']),
 			'APP_ONLINEDATE' => $this->data['move2production'],
-			'APP_CONTACTS' => $this->_list2str($this->data['person_list'], 'person_name'),
+			'APP_CONTACTS' => $this->List2Str($this->data['person_list'], 'person_name'),
 			'UPDATEDTIME' =>  (string)time(),
 		];
 
@@ -379,22 +333,93 @@ class iTopKubernetes extends iTopK8s {
 				'value' => $v
 			];
 		}
+
+		// 同时将secret写入环境变量
+		foreach($this->secrets as $k => $v) {
+			foreach($v['data'] as $key => $val) {
+				$this->env[] = [
+					'name' => $key,
+					'valueFrom' =>[
+						'secretKeyRef' => [
+							'name' => $v['metadata']['name'],
+							'key' => $key
+						]
+					]
+				];
+			}
+		} 
 	}
 
-	private function _defaultasecuritycontext() {
-		$securitycontext = [];
+	function GetImage() {
+		$tag = $this->data['image_tag'];
+		if($tag == "") {
+			$tag = "latest";
+		}
+		$this->image = $this->data['image'] . ":" . $tag;
+	}
+
+	function GetResources() {
+		$this->resources = ['requests'=>[],'limits'=>[]];
+		$mem = $this->data['mem_request'] . "Mi";
+		$this->resources['requests']['cpu'] = $this->data['cpu_request'];
+		$this->resources['requests']['memory'] = $mem;
+		$this->resources['limits']['cpu'] = $this->data['cpu_limit'];
+		$this->resources['limits']['memory'] = $mem;
+	}
+
+	function GetPorts() {
+		$ports = explode(",", $this->data['containerport']);
+		$this->ports = [];
+		foreach($ports as $k => $v) {
+			$this->ports[] = ['containerPort' => (int) $v];
+		}
+	}
+
+	function GetHostAliases() {
+		$this->hostAliases = [];
+		if($this->data['hostaliases']) {
+			$hosts = yaml_parse($this->data['hostaliases']);
+			if(is_array($hosts)) {
+				foreach($hosts as $domain => $ip) {
+						$this->hostAliases[]=["ip" => $ip, "hostnames"=>["$domain"]];
+					}
+			}
+		}
+	}
+
+	function GetStrategy() {
+		$this->strategy = [];
+		$rolling_strategy = $this->data['rolling_strategy'];
+		if($rolling_strategy) {
+			$s = explode(":", $rolling_strategy);
+			$ns = [];
+			foreach($s as $val) {
+				if(!preg_match('/.*%$/',$val)) {
+					$ns[] = (int)$val;
+				} else {
+					$ns[] = $val;
+				}
+			}
+			$this->strategy = ["type" => "RollingUpdate",
+				"rollingUpdate"=>["maxUnavailable"=>$ns[0], "maxSurge"=>$ns[1]]
+			];
+		}
+	}
+
+	function GetSecurityContext() {
+		$this->securityContext = [];
 		// forbidden sysctl: "net.ipv4.ip_local_port_range" not allowed with host net enabled
 		if($this->data['hostnetwork'] == 'true') {
-			return $securitycontext;
+			return '';
 		}
-		$securitycontext["sysctls"] = [];
-		$securitycontext["sysctls"][] = [
+		$this->securityContext["sysctls"] = [];
+		$this->securityContext["sysctls"][] = [
 			"name" => "net.ipv4.ip_local_port_range",
 			"value" => "2000    65000"
 		];
-		return $securitycontext;
 	}
-	private function _defaultaffinity() {
+
+	function GetDefaultAffinity() {
 		$CPU = [];
 		// cpu_request超过设置阈值时，优先选择高配机器，高配机器核数通过配置文件定义
 		if($this->data['cpu_request'] >= _getconfig("kubernetes_pm_threshold", 3)) {
@@ -434,48 +459,186 @@ class iTopKubernetes extends iTopK8s {
 		return $aff;
 	}
 
-	private function _getaffinity() {
+	function GetAffinity() {
 		$affinity = new iTopAffinity($this->data['affinity_list']);
-		$data = $affinity->run();
-		if(count($data) == 0) {
-			$data = $this->_defaultaffinity();
+		$this->affinity = $affinity->Run();
+		if(count($this->affinity) == 0) {
+			$this->affinity = $this->GetDefaultAffinity();
 		}
-		//print_r($data);die();
-		return $data;
 	}
 
-	private function _getlifecycle() {
-		$sec = '45';
-		if(array_key_exists("prestop", $this->data) && $this->data['preStop']) {
-			$sec = (string)$this->data['preStop'];
+	function GetHostNetwork() {
+		if($this->data['hostnetwork'] == "true") {
+			$this->hostNetwork = true;
 		}
-		$lifecycle =  [
+	}
+
+	function GetProbe() {
+		$probe = new iTopProbe($this->data);
+		$this->livenessProbe = $probe->livenessProbe();
+		$this->readinessProbe = $probe->readinessProbe();
+	}
+
+	function GetLifecycle() {
+		$sec = '45';
+		if(array_key_exists("prestop", $this->data) && $this->data['prestop']) {
+			$sec = (string)$this->data['prestop'];
+		}
+		$this->lifecycle =  [
 			'preStop' => [
 				'exec' => [
 					'command' => ['sleep',$sec]
 				]
 			]
 		];
-		return $lifecycle;
+	}
+
+	function GetTerminationGracePeriodSeconds() {
+		$this->terminationGracePeriodSeconds = 90;
+		if(array_key_exists('graceperiod', $this->data) && $this->data['graceperiod']) {
+			$this->terminationGracePeriodSeconds = $this->data['graceperiod'];
+		}
+	}
+
+	function DeletePod() {
+		$del = true;
+		// replicaSet 和 Pod 需要单独删除
+		// 在子类的run方法中最后调用(先删除可能会被rs重新创建)
+		$rs = $this->k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
+		$pod = $this->k8sClient->pods()->setLabelSelector(['app'=>$this->app])->find();
+		foreach($rs as $k => $v) {
+			$this->result[] = $this->k8sClient->replicaSets()->delete($v);
+		}
+		foreach($pod as $k => $v) {
+			$this->result[] = $this->k8sClient->pods()->delete($v);
+		}
+	}
+
+	function UpdateService($del) {
+		$service = new iTopService($this->data);
+		$this->DealResult($service->Run($del));
+	}
+
+	function Run($del = false) {
+		// 处理私有Secret 公共Secret只需挂载即可，不用处理创建更新以及删除
+		$this->DealResult($this->privateSecret->Run($del));
+
+		// 处理Service 写成方法是为了在Deployment中可以重写该方法(Worker类型不需要创建Service)
+		$this->UpdateService($del);
+
+		// 设置默认HPA
+		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
+			$hpa = new iTopHPA($this->data);
+			$this->DealResult($hpa->Run($del));
+		}
+
+		return $this->result;
+	}
+}
+
+class iTopDeployment extends iTopController {
+	protected $isHttp = true;
+	private $deployment;
+	private $domain;
+	private $privateIngressServicePort;
+
+	function __construct($data) {
+		// GetEnvs设置APP_DOMAIN需要domain
+		$domain = explode("/", $data['url']);
+		$this->domain = end($domain);
+
+		// 需要在执行父类构造函数之前获取正确的isHttp值
+		if($this->data['type'] != 'web') {
+			$this->isHttp = false;
+		}
+
+		parent::__construct($data);
+	}
+
+	function GetEnvs() {
+		parent::GetEnvs();
+
+		if(!$this->isHttp) {
+			return '';
+		}
+
+		$envstr = [
+			'APP_DOMAIN' => $this->domain . "/," . $this->List2Str($this->data['ingress_list'], 'friendlyname'),
+		];
+
+		foreach($envstr as $k => $v) {
+			$this->env[] = [
+				'name' => $k,
+				'value' => $v
+			];
+		}
+	}
+
+	function GetProbe() {
+		if($this->isHttp) {
+			parent::GetProbe();
+		} else {
+			$this->readinessProbe = [];
+			$this->livenessProbe = [];
+		}
+	}
+
+	function GetPorts() {
+		if($this->isHttp) {
+			parent::GetPorts();
+			$this->privateIngressServicePort = $this->ports[0]['containerPort'];
+		} else {
+			$this->ports = [];
+			$this->privateIngressServicePort = 80;
+		}
+	}
+
+	function UpdateIngress($del) {
+		// 后台服务清除Ingress
+		if(!$this->isHttp) {
+			$del = true;
+		}
+
+		$data = [];
+		$data['applicationsolution_name'] = $this->app;
+		$data['domain_name'] = $this->domain;
+		$data['https'] = $this->data['https'];
+		$data['location'] = "/";
+		$data['k8snamespace_name'] = $this->ns;
+		$data['serviceport'] = $this->privateIngressServicePort;
+		$data['ingressannotations_list'] = $this->data['ingressannotations_list'];
+		$data['status'] = 'production'; // 私有ingress保持production状态
+		$data['manage_svc'] = 'no';   //私有ingress不管理svc
+
+		$privateIngress = new iTopIngress($data);
+		// 存在domain_name为空的情况，此时不创建privateIngress
+		if($data['domain_name']) {
+			$this->DealResult($privateIngress->Run($del));
+		}
+
+		// 考虑先下线后上线，下线步骤删除所有ingress的情况，上线步骤应上线所有ingress
+		foreach($this->data['ingress_list'] as $val) {
+			$ing = new iTopIngress($val);
+			$this->DealResult($ing->Run($del));
+		}
+	}
+
+	function UpdateService($del) {
+		if($this->isHttp) {
+			parent::UpdateService($del);
+		} else {
+			parent::UpdateService(true);
+		}
 	}
 
 	function Deployment() {
-		global $PULLPOLICY;
-		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
-			$PULLPOLICY = "Always";
-		}
-		// 挂载宿主机时区
-		$this->_mounttz();
-
-		$this->_getenv();
-
 		$this->deployment = [
 			'metadata' => [
 				'name' => $this->app,
 				'labels' => [
 					'app' => $this->app
 				],
-				'namespace' => $this->data['k8snamespace_name'],
+				'namespace' => $this->ns,
 			],
 			'spec' => [
 				'replicas' => (int) $this->data['replicas'],
@@ -492,225 +655,120 @@ class iTopKubernetes extends iTopK8s {
 					],
 					'spec' => [
 						'hostNetwork' => $this->hostNetwork,
-						'affinity' => $this->_getaffinity(),
+						'affinity' => $this->affinity,
 						'containers' => [
 							[
 								'name' => $this->app,
-								'image' => $this->_getimage(),
-								'resources' => $this->_getresources(),
+								'image' => $this->image,
+								'resources' => $this->resources,
 								'env' => $this->env,
-								'ports' => $this->_getports('deployment'),
-								'volumeMounts' => $this->mount['volumeMounts'],
-								'imagePullPolicy' => $PULLPOLICY,
-								'readinessProbe' => $this->readinessProbe,
-								'livenessProbe' => $this->livenessProbe,
+								'ports' => $this->ports,
+								'volumeMounts' => $this->volumes['volumeMounts'],
+								'imagePullPolicy' => $this->imagePullPolicy,
 							]
 						],
-						'volumes' => $this->mount['volumes'],
+						'volumes' => $this->volumes['volumes'],
 					],
 				]
 			]
 		];
 
-		$hostaliases = $this->_gethostaliases();
-		if($hostaliases) {
-			$this->deployment['spec']['template']['spec']['hostAliases'] = $hostaliases;
+		if($this->readinessProbe) {
+			$this->deployment['spec']['template']['spec']['containers'][0]['readinessProbe'] = $this->readinessProbe;
 		}
 
-		$strategy = $this->_getrollingstrategy();
-		if($strategy) {
-			$this->deployment['spec']['strategy'] = $strategy;
+		if($this->livenessProbe) {
+			$this->deployment['spec']['template']['spec']['containers'][0]['livenessProbe'] = $this->livenessProbe;
 		}
 
-		$securitycontext = $this->_defaultasecuritycontext();
-		if($securitycontext) {
-			$this->deployment['spec']['template']['spec']['securityContext'] = $securitycontext;
+		if($this->hostAliases) {
+			$this->deployment['spec']['template']['spec']['hostAliases'] = $this->hostAliases;
 		}
 
-		$lifecycle = $this->_getlifecycle();
-		if($lifecycle) {
-			$this->deployment['spec']['template']['spec']['containers'][0]['lifecycle'] = $lifecycle;
+		if($this->strategy) {
+			$this->deployment['spec']['strategy'] = $this->strategy;
 		}
 
-		$graceperiod = 90;
-		if(array_key_exists('graceperiod', $this->data) && $this->data['graceperiod']) {
-			$graceperiod = $this->data['graceperiod'];
+		if($this->securityContext) {
+			$this->deployment['spec']['template']['spec']['securityContext'] = $this->securityContext;
 		}
-		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $graceperiod;
+
+		if($this->lifecycle) {
+			$this->deployment['spec']['template']['spec']['containers'][0]['lifecycle'] = $this->lifecycle;
+		}
+
+		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $this->terminationGracePeriodSeconds;
 	}
 
-	function PrivateIngress() {
-		$data = [];
-		$data['applicationsolution_name'] = $this->app;
-		$data['domain_name'] = $this->domain;
-		$data['https'] = $this->data['https'];
-		$data['location'] = "/";
-		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
-		$data['serviceport'] = $this->_getports('service')[0]['port'];
-		$data['ingressannotations_list'] = $this->data['ingressannotations_list'];
-		$data['status'] = 'production'; // 私有ingress保持production状态
-		$data['manage_svc'] = 'no';   //私有ingress不管理svc
-		return $data;
-	}
-
-	function PrivateSecret() {
-		$data = [];
-		$data['k8snamespace_name'] = $this->data['k8snamespace_name'];
-		$data['applicationsolution_name'] = $this->app;
-		$data['data'] = $this->data['secret'];
-		$data['name'] = "";
-		return $data;
-	}
-
-	private function _delete($k8sClient) {
-		$del = true;
-
-		$ingressData = $this->PrivateIngress();
-		$privateIngress = new iTopIngress($ingressData);
-
-		// 删除deployment涉及的所有ingress，包括自动设置的和手动添加的
-		$this->dealResult($privateIngress->run($del));
-		foreach($this->data['ingress_list'] as $val) {
-			$ing = new iTopIngress($val);
-			$this->dealResult($ing->run($del));
-		}
-
-		// 删除部署
-		if($this->exists) {
-			$this->result[] = $k8sClient->deployments()->deleteByName($this->app);
-		}
-
-		// replicaSet 和 Pod 需要单独删除
-		$rs = $k8sClient->replicaSets()->setLabelSelector(['app'=>$this->app])->find();
-		$pod = $k8sClient->pods()->setLabelSelector(['app'=>$this->app])->find();
-		foreach($rs as $k => $v) {
-			$this->result[] = $k8sClient->replicaSets()->delete($v);
-		}
-		foreach($pod as $k => $v) {
-			$this->result[] = $k8sClient->pods()->delete($v);
-		}
-
-		// 只删除私有secret, 私有secret名称是app名称
-		$secretData = $this->PrivateSecret();
-		$privateSecret = new iTopSecret($secretData);
-		$this->dealResult($privateSecret->run($del));
-
-		// 删除默认HPA
-		$hpa = new iTopHPA($this->data);
-		$this->dealResult($hpa->run($del));
-
-		// ToDO： 删除自定义HPA
-	}
-
-	private function _updateDeployment($k8sClient, $deployment) {
-		if($this->exists) {
-			$this->result[] = $k8sClient->deployments()->update($deployment);
-		} else {
-			$this->result[] = $k8sClient->deployments()->create($deployment);
-		}
-	}
-
-	private function _updateIngress($k8sClient) {
-		// 考虑先下线后上线，下线步骤删除所有ingress的情况，上线步骤应上线所有ingress
-		$ingressData = $this->PrivateIngress();
-		$privateIngress = new iTopIngress($ingressData);
-
-		// 存在domain_name为空的情况，此时不创建privateIngress
-		if($ingressData['domain_name']) {
-			$this->dealResult($privateIngress->run());
-		}
-
-		foreach($this->data['ingress_list'] as $val) {
-			$ing = new iTopIngress($val);
-			$this->dealResult($ing->run());
-		}
-	}
-
-	private function _updateSecret($k8sClient) {
-		// 只需要更新私有secret，公共secret直接挂载即可
-		$secretData = $this->PrivateSecret();
-		$privateSecret = new iTopSecret($secretData);
-		$this->dealResult($privateSecret->run());
-		$this->_secret2env($privateSecret->get('secret'));
-		$this->_mountsecret();
-	}
-
-	function run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
-		// 注意顺序 secret要先于Deployment调用前执行，secret中更新环境变量，挂载secret
-		$this->_updateSecret($k8sClient);
+	function Run($del = false) {
+		parent::Run($del);
 
 		$this->Deployment();
-		$deployment = new Deployment($this->get('deployment'));
-
-		$this->exists = $k8sClient->deployments()->exists($deployment->getMetadata('name'));
-
-		// 管理Service
-		$service = new iTopService($this->data);
-		$this->dealResult($service->run($del));
+		$deployment = new Deployment($this->deployment);
+		$this->exists = $this->k8sClient->deployments()->exists($deployment->getMetadata('name'));
 
 		if($del) {
-			$this->_delete($k8sClient);
-			return ($this->result);
+			$this->result[] = $this->k8sClient->deployments()->deleteByName($this->app);
+		} elseif($this->exists) {
+			$this->result[] = $this->k8sClient->deployments()->update($deployment);
+		} else {
+			$this->result[] = $this->k8sClient->deployments()->create($deployment);
 		}
 
-		$this->_updateDeployment($k8sClient, $deployment);
-		$this->_updateIngress($k8sClient);
+		$this->UpdateIngress($del);
 
-		// 设置默认HPA
-		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
-			$hpa = new iTopHPA($this->data);
-			$this->dealResult($hpa->run());
+		// 清理ReplicaSet 和 Pod
+		if($del) {
+			$this->DeletePod();
 		}
-		return ($this->result);
+
+		return $this->result;
 	}
 }
 
 class iTopSecret extends iTopK8s {
 	private $name;
 	protected $secret;
-	private $data;      // secret数据
 	private $isYaml = false;
+	private $oData;    // Secret data
 
 	function __construct($data) {
-		$this->data = $data['data'];
+		parent::__construct($data);
+
+		$this->oData = $data['data'];
 
 		// 私有secret名称直接用app名称，公共secret用app名称加secret名称，Controller对象中私有secret调用时将data['name']设置为空值
-		$this->name = $data['applicationsolution_name'];
+		$this->name = $this->app;
 		if($data['name']) {
-			$this->name = $data['applicationsolution_name'] . "-" . $data['name'];
+			$this->name = $this->app . "-" . $data['name'];
 		}
 
 		// 加前缀 便于区分
 		$this->name = SECRET_PRE . $this->name;
 
-		$this->ns = $data['k8snamespace_name'];
-
-		$this->_check();
+		$this->CheckYaml();
 		$this->Secret();
 	}
 
 	// 检查是否是yaml格式
-	function _check() {
-		if(!$this->data) {
-			$this->data = [];
+	function CheckYaml() {
+		if(!$this->oData) {
+			$this->oData = [];
 			$this->isYaml = true;  // secret为空时执行删除逻辑， 不判断是否是yaml
 			return;
 		}
-		$parsed = yaml_parse($this->data);
+		$parsed = yaml_parse($this->oData);
 		if(is_array($parsed)) {
-			$this->data = $parsed;
+			$this->oData = $parsed;
 			$this->isYaml = true;
 		} else {
-			$this->data = [];
+			$this->oData = [];
 		}
 	}
 
 	function Secret() {
 		$secret_data = [];
-		foreach($this->data as $k => $v) {
+		foreach($this->oData as $k => $v) {
 			$secret_data[$k] = base64_encode($v);
 		}
 		$this->secret = [
@@ -723,7 +781,7 @@ class iTopSecret extends iTopK8s {
 		];
 	}
 
-	function deallog($r) {
+	function DealLog($r) {
 		if($r['kind'] == "Secret") {
 			// 不在iTop事件日志中记录secret内容
 			unset($r['data']);return $r;
@@ -731,11 +789,8 @@ class iTopSecret extends iTopK8s {
 		return $r;
 	}
 
-	function run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
-
-		if(!$this->data) {
+	function Run($del = false) {
+		if(!$this->oData) {
 			$del = true;
 		}
 
@@ -745,17 +800,17 @@ class iTopSecret extends iTopK8s {
 		}
 
 		$secret = new Secret($this->secret);
-		$this->exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
+		$this->exists = $this->k8sClient->secrets()->exists($secret->getMetadata('name'));
 
 		$r = ['kind'=>"Secret", "message"=>"Secret " . $this->name . " Not Found"];
 		if($del) {
-			if($this->exists) $r = $k8sClient->secrets()->deleteByName($this->name);
+			if($this->exists) $r = $this->k8sClient->secrets()->deleteByName($this->name);
 		} elseif($this->exists) {
-			$r = $k8sClient->secrets()->update($secret);
+			$r = $this->k8sClient->secrets()->update($secret);
 		} else {
-			$r = $k8sClient->secrets()->create($secret);
+			$r = $this->k8sClient->secrets()->create($secret);
 		}
-		$this->result[] = $this->deallog($r);
+		$this->result[] = $this->DealLog($r);
 		return ($this->result);
 	}
 }
@@ -769,19 +824,19 @@ class iTopAffinity {
 		$this->affinity = [];
 	}
 
-	private function _checkKey($key) {
+	private function CheckKey($key) {
 		if(!array_key_exists($key, $this->affinity)) {
 			$this->affinity[$key] = [];
 		}
 	}
 
-	private function _checkKey2($key, $key2) {
+	private function CheckKey2($key, $key2) {
 		if(!array_key_exists($key, $this->affinity[$key2])) {
 			$this->affinity[$key2][$key] = [];
 		}
 	}
 
-	private function _getExp($exp, $values) {
+	private function GetExp($exp, $values) {
 		if(!$exp) {
 			return [];
 		}
@@ -801,8 +856,8 @@ class iTopAffinity {
 		}
 	}
 
-	function _getnodeaffinity($val) {
-		$this->_checkKey("nodeAffinity");
+	function GetNodeAffinity($val) {
+		$this->CheckKey("nodeAffinity");
 		$tp = "required";
 		if($val['k8saffinity_requiretype'] == "required") {
 			$key = "requiredDuringSchedulingIgnoredDuringExecution";
@@ -811,22 +866,22 @@ class iTopAffinity {
 			$tp = "preferred";
 		}
 
-		$this->_checkKey2($key, "nodeAffinity");
+		$this->CheckKey2($key, "nodeAffinity");
 		if($tp == "required") {
 			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']] = ["matchExpressions" => []];
-			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->_getExp($val['k8saffinity_expressions'], $val['values']);
+			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->GetExp($val['k8saffinity_expressions'], $val['values']);
 		}
 	}
 
-	function _getpodaffinity($val) {
-		$this->_checkKey("podAffinity");
+	function GetPodAffinity($val) {
+		$this->CheckKey("podAffinity");
 	}
 
-	function _getpodantiaffinity($val) {
-		$this->_checkKey("podAntiAffinity");
+	function GetPodAntiAffinity($val) {
+		$this->CheckKey("podAntiAffinity");
 	}
 
-	function _delarraykey() {
+	function DelArrayKey() {
 		if(array_key_exists("nodeAffinity", $this->affinity)) {
 			if(array_key_exists("requiredDuringSchedulingIgnoredDuringExecution", $this->affinity['nodeAffinity'])) {
 				$this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'] = array_values($this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms']);
@@ -834,18 +889,18 @@ class iTopAffinity {
 		}
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $val) {
 			$affinitytype = $val['k8saffinity_affinitytype'];
 			if(in_array($affinitytype, ["nodeaffinity", "nodeantiaffinity"])) {
-				$this->_getnodeaffinity($val);
+				$this->GetNodeAffinity($val);
 			} elseif($affinitytype == "podaffinity") {
-				$this->_getpodaffinity($val);
+				$this->GetPodAffinity($val);
 			} else {
-				$this->_getpodantiaffinity($val);
+				$this->GetPodAntiAffinity($val);
 			}
 		}
-		$this->_delarraykey();
+		$this->DelArrayKey();
 		return $this->affinity;
 	}
 }
@@ -861,7 +916,7 @@ class iTopVolume {
 		$this->volumes = ['volumeMounts' => [], 'volumes' => []];
 	}
 
-	function _gethostpath($key, $val) {
+	function GetHostpath($key, $val) {
 		global $hostPathPre;
 		$name = "hostpath-" . $key . "-" . $this->app;
 		$path = rtrim($hostPathPre, "/") . "/" . $name;
@@ -869,11 +924,11 @@ class iTopVolume {
 		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $key => $val) {
 			$volumetype = $val['k8svolume_type'];
 			if($volumetype == "hostpath") {
-				$this->_gethostpath($key, $val);
+				$this->GetHostpath($key, $val);
 			}
 		}
 		return $this->volumes;
@@ -914,21 +969,23 @@ class iTopProbe {
 }
 
 class iTopIngress extends iTopK8S {
-	private $data;
 	private $name;
 	private $ingress;
 	private $serviceName;
 
 	function __construct($data) {
-		$this->data = $data;
-		$this->serviceName = str_replace("_", "-", $data['applicationsolution_name']);
+		parent::__construct($data);
+		$this->serviceName = $this->app;
 		$this->ingress = [];
-		$this->getName();
+		$this->GetName();
+		// 每一个外部服务负载均衡应对应唯一的Service，防止只用 app-后缀 方案可能存在的配置覆盖问题
+		// 用 IngressNmae-后缀 的方式提供唯一名称
+		$this->data['name'] = $this->name;
 	}
 
-	private function getName() {
+	private function GetName() {
 		$matches = [];
-		$this->name = $this->data['applicationsolution_name'] . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
+		$this->name = $this->app . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
 		$hash = substr(md5($this->name), 0, 5);
 		// By convention, the names of Kubernetes resources should be up to maximum length of 253 characters and consist of lower case alphanumeric characters, -, and .
 		preg_match_all('/[a-z0-9\.]+/', $this->name, $matches);
@@ -959,7 +1016,7 @@ class iTopIngress extends iTopK8S {
 			$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => 'default-tls'];
 		}
 		$customNginx = new iTopIngressAnnotations($data['ingressannotations_list']);
-		$annotations = $customNginx->run();
+		$annotations = $customNginx->Run();
 		$annotations['kubernetes.io/ingress.class'] = $data['k8snamespace_name'];
 		$this->ingress = [
 			'metadata' => [
@@ -976,24 +1033,21 @@ class iTopIngress extends iTopK8S {
 		}
 	}
 
-	function run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
+	function Run($del = false) {
 		// 根据manage_svc做不同处理
 		if($this->data['manage_svc'] != 'no') {
 			$service = new iTopService($this->data);
 			if($this->data['manage_svc'] == "clean") {
-				$this->dealResult($service->run(true));
+				$this->DealResult($service->Run(true));
 			} else {
-				$this->dealResult($service->run($del));
+				$this->DealResult($service->Run($del));
 			}
-			$this->serviceName = $service->get('serviceName');
+			$this->serviceName = $service->Get('serviceName');
 		}
 
 		$this->Ingress();
 		$ingress = new Ingress($this->ingress);
-		$this->exists = $k8sClient->ingresses()->exists($ingress->getMetadata('name'));
+		$this->exists = $this->k8sClient->ingresses()->exists($ingress->getMetadata('name'));
 
 		// 因为iTopKubernetes中_updateIngress要将Deployment ingress_list中的所有对象都上线，
 		// 所以即使没有del=true，当对象状态为stock时需也需要del，防止误上线
@@ -1002,11 +1056,11 @@ class iTopIngress extends iTopK8S {
 		}
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->ingresses()->update($ingress);
+			$this->result[] = $this->k8sClient->ingresses()->update($ingress);
 		} else {
-			$this->result[] = $k8sClient->ingresses()->create($ingress);
+			$this->result[] = $this->k8sClient->ingresses()->create($ingress);
 		}
 
 		return ($this->result);
@@ -1022,7 +1076,7 @@ class iTopIngressAnnotations {
 		$this->annotations = [];
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $val) {
 			if($val['enable'] != 'yes') {
 				continue; // 解决暂时下线某项配置，以后可能还用的场景
@@ -1039,19 +1093,18 @@ class iTopIngressAnnotations {
 }
 
 class iTopHPA extends iTopK8s {
-	private $data;
 	private $hpa;
 	private $min;
 	private $max;
 	private $metrics;
 
 	function __construct($data) {
-		$this->data = $data;
+		parent::__construct($data);
 		$this->metrics = [];
 		if($this->data['finalclass'] == "Deployment") {
-			$this->defaultHpa();
+			$this->GetDefaultHpa();
 		} else {
-			$this->customHpa();
+			$this->GetCustomHpa();
 		}
 		$this->hpa = [
 			"metadata" => [
@@ -1067,9 +1120,7 @@ class iTopHPA extends iTopK8s {
 		];
 	}
 
-	function defaultHpa() {
-		$this->ns = $this->data['k8snamespace_name'];
-		$this->app = $this->data['applicationsolution_name'];
+	function GetDefaultHpa() {
 		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
 		if($this->data['hostnetwork'] == 'true') {
 			$this->max = (int)$this->data['replicas'];
@@ -1077,13 +1128,11 @@ class iTopHPA extends iTopK8s {
 			$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
 		}
 
-		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
-		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 85), "memory");
+		$this->AddResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
+		$this->AddResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 85), "memory");
 	}
 
-	function customHpa() {
-		$this->ns = $this->data['k8snamespace_name'];
-		$this->app = $this->data['applicationsolution_name'];
+	function GetCustomHpa() {
 		$this->min = $this->data['minreplicas'];
 		$this->max = $this->data['maxreplicas'];
 		$metrics = $this->data['metrics'];
@@ -1092,14 +1141,14 @@ class iTopHPA extends iTopK8s {
 		}
 		foreach($metrics as $key => $val) {
 			switch($key) {
-				case "cpu": $this->addResouceMetrics((int)$val); break;
-				case "memory": $this->addResouceMetrics((int)$val, "memory"); break;
+				case "cpu": $this->AddResouceMetrics((int)$val); break;
+				case "memory": $this->AddResouceMetrics((int)$val, "memory"); break;
 				default : break;
 			}
 		}
 	}
 
-	function addResouceMetrics($val,$rtype="cpu") {
+	function AddResouceMetrics($val,$rtype="cpu") {
 		$this->metrics[] = [
 			"type" => "Resource",
 			"resource" => [
@@ -1109,19 +1158,16 @@ class iTopHPA extends iTopK8s {
 		];
 	}
 
-	function run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
+	function Run($del = false) {
 		$hpa = new HorizontalPodAutoscaler($this->hpa);
-		$this->exists = $k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'));
+		$this->exists = $this->k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'));
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
+			$this->result[] = $this->k8sClient->horizontalPodAutoscalers()->update($hpa);
 		} else {
-			$this->result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
+			$this->result[] = $this->k8sClient->horizontalPodAutoscalers()->create($hpa);
 		}
 
 		return ($this->result);
@@ -1267,11 +1313,11 @@ if($finalclass == "Ingress") {
 	$itopK8s = new iTopIngress($data);
 }
 if($finalclass == "Deployment") {
-	$itopK8s = new iTopKubernetes($data);
+	$itopK8s = new iTopDeployment($data);
 }
 
 try {
-	$ret = $itopK8s->run($del);
+	$ret = $itopK8s->Run($del);
 } catch(Exception $e) {
 	$message = json_decode($e->getMessage(), true);
 	if(!$message) $message = $e->getMessage();
