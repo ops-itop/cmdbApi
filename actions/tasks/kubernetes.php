@@ -745,12 +745,12 @@ class iTopSecret extends iTopK8s {
 		// 加前缀 便于区分
 		$this->name = SECRET_PRE . $this->name;
 
-		$this->_check();
+		$this->CheckYaml();
 		$this->Secret();
 	}
 
 	// 检查是否是yaml格式
-	function _check() {
+	function CheckYaml() {
 		if(!$this->oData) {
 			$this->oData = [];
 			$this->isYaml = true;  // secret为空时执行删除逻辑， 不判断是否是yaml
@@ -780,7 +780,7 @@ class iTopSecret extends iTopK8s {
 		];
 	}
 
-	function deallog($r) {
+	function DealLog($r) {
 		if($r['kind'] == "Secret") {
 			// 不在iTop事件日志中记录secret内容
 			unset($r['data']);return $r;
@@ -809,7 +809,7 @@ class iTopSecret extends iTopK8s {
 		} else {
 			$r = $this->k8sClient->secrets()->create($secret);
 		}
-		$this->result[] = $this->deallog($r);
+		$this->result[] = $this->DealLog($r);
 		return ($this->result);
 	}
 }
@@ -823,19 +823,19 @@ class iTopAffinity {
 		$this->affinity = [];
 	}
 
-	private function _checkKey($key) {
+	private function CheckKey($key) {
 		if(!array_key_exists($key, $this->affinity)) {
 			$this->affinity[$key] = [];
 		}
 	}
 
-	private function _checkKey2($key, $key2) {
+	private function CheckKey2($key, $key2) {
 		if(!array_key_exists($key, $this->affinity[$key2])) {
 			$this->affinity[$key2][$key] = [];
 		}
 	}
 
-	private function _getExp($exp, $values) {
+	private function GetExp($exp, $values) {
 		if(!$exp) {
 			return [];
 		}
@@ -855,8 +855,8 @@ class iTopAffinity {
 		}
 	}
 
-	function _getnodeaffinity($val) {
-		$this->_checkKey("nodeAffinity");
+	function GetNodeAffinity($val) {
+		$this->CheckKey("nodeAffinity");
 		$tp = "required";
 		if($val['k8saffinity_requiretype'] == "required") {
 			$key = "requiredDuringSchedulingIgnoredDuringExecution";
@@ -865,22 +865,22 @@ class iTopAffinity {
 			$tp = "preferred";
 		}
 
-		$this->_checkKey2($key, "nodeAffinity");
+		$this->CheckKey2($key, "nodeAffinity");
 		if($tp == "required") {
 			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']] = ["matchExpressions" => []];
-			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->_getExp($val['k8saffinity_expressions'], $val['values']);
+			$this->affinity["nodeAffinity"][$key]["nodeSelectorTerms"][$val['group']]["matchExpressions"][] = $this->GetExp($val['k8saffinity_expressions'], $val['values']);
 		}
 	}
 
-	function _getpodaffinity($val) {
-		$this->_checkKey("podAffinity");
+	function GetPodAffinity($val) {
+		$this->CheckKey("podAffinity");
 	}
 
-	function _getpodantiaffinity($val) {
-		$this->_checkKey("podAntiAffinity");
+	function GetPodAntiAffinity($val) {
+		$this->CheckKey("podAntiAffinity");
 	}
 
-	function _delarraykey() {
+	function DelArrayKey() {
 		if(array_key_exists("nodeAffinity", $this->affinity)) {
 			if(array_key_exists("requiredDuringSchedulingIgnoredDuringExecution", $this->affinity['nodeAffinity'])) {
 				$this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms'] = array_values($this->affinity['nodeAffinity']['requiredDuringSchedulingIgnoredDuringExecution']['nodeSelectorTerms']);
@@ -892,14 +892,14 @@ class iTopAffinity {
 		foreach($this->data as $val) {
 			$affinitytype = $val['k8saffinity_affinitytype'];
 			if(in_array($affinitytype, ["nodeaffinity", "nodeantiaffinity"])) {
-				$this->_getnodeaffinity($val);
+				$this->GetNodeAffinity($val);
 			} elseif($affinitytype == "podaffinity") {
-				$this->_getpodaffinity($val);
+				$this->GetPodAffinity($val);
 			} else {
-				$this->_getpodantiaffinity($val);
+				$this->GetPodAntiAffinity($val);
 			}
 		}
-		$this->_delarraykey();
+		$this->DelArrayKey();
 		return $this->affinity;
 	}
 }
@@ -915,7 +915,7 @@ class iTopVolume {
 		$this->volumes = ['volumeMounts' => [], 'volumes' => []];
 	}
 
-	function _gethostpath($key, $val) {
+	function GetHostpath($key, $val) {
 		global $hostPathPre;
 		$name = "hostpath-" . $key . "-" . $this->app;
 		$path = rtrim($hostPathPre, "/") . "/" . $name;
@@ -927,7 +927,7 @@ class iTopVolume {
 		foreach($this->data as $key => $val) {
 			$volumetype = $val['k8svolume_type'];
 			if($volumetype == "hostpath") {
-				$this->_gethostpath($key, $val);
+				$this->GetHostpath($key, $val);
 			}
 		}
 		return $this->volumes;
@@ -976,13 +976,13 @@ class iTopIngress extends iTopK8S {
 		parent::__construct($data);
 		$this->serviceName = $this->app;
 		$this->ingress = [];
-		$this->getName();
+		$this->GetName();
 		// 每一个外部服务负载均衡应对应唯一的Service，防止只用 app-后缀 方案可能存在的配置覆盖问题
 		// 用 IngressNmae-后缀 的方式提供唯一名称
 		$this->data['name'] = $this->name;
 	}
 
-	private function getName() {
+	private function GetName() {
 		$matches = [];
 		$this->name = $this->app . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
 		$hash = substr(md5($this->name), 0, 5);
@@ -1101,9 +1101,9 @@ class iTopHPA extends iTopK8s {
 		parent::__construct($data);
 		$this->metrics = [];
 		if($this->data['finalclass'] == "Deployment") {
-			$this->defaultHpa();
+			$this->GetDefaultHpa();
 		} else {
-			$this->customHpa();
+			$this->GetCustomHpa();
 		}
 		$this->hpa = [
 			"metadata" => [
@@ -1119,7 +1119,7 @@ class iTopHPA extends iTopK8s {
 		];
 	}
 
-	function defaultHpa() {
+	function GetDefaultHpa() {
 		$this->min = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_min", 0.3));
 		if($this->data['hostnetwork'] == 'true') {
 			$this->max = (int)$this->data['replicas'];
@@ -1127,11 +1127,11 @@ class iTopHPA extends iTopK8s {
 			$this->max = ceil($this->data['replicas'] * _getconfig("kubernetes_hpa_default_max", 3));
 		}
 
-		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
-		$this->addResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 85), "memory");
+		$this->AddResouceMetrics(_getconfig("kubernetes_hpa_targetcpuutilizationpercentage", 60));
+		$this->AddResouceMetrics(_getconfig("kubernetes_hpa_targetmemoryutilizationpercentage", 85), "memory");
 	}
 
-	function customHpa() {
+	function GetCustomHpa() {
 		$this->min = $this->data['minreplicas'];
 		$this->max = $this->data['maxreplicas'];
 		$metrics = $this->data['metrics'];
@@ -1140,14 +1140,14 @@ class iTopHPA extends iTopK8s {
 		}
 		foreach($metrics as $key => $val) {
 			switch($key) {
-				case "cpu": $this->addResouceMetrics((int)$val); break;
-				case "memory": $this->addResouceMetrics((int)$val, "memory"); break;
+				case "cpu": $this->AddResouceMetrics((int)$val); break;
+				case "memory": $this->AddResouceMetrics((int)$val, "memory"); break;
 				default : break;
 			}
 		}
 	}
 
-	function addResouceMetrics($val,$rtype="cpu") {
+	function AddResouceMetrics($val,$rtype="cpu") {
 		$this->metrics[] = [
 			"type" => "Resource",
 			"resource" => [
