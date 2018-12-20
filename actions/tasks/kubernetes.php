@@ -116,9 +116,6 @@ class iTopService extends iTopK8s {
 	}
 
 	private function UpdateEndpoints($ips) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
-
 		// 没有填写endpoint时直接退出
 		if(!$ips) {
 			return '';
@@ -150,11 +147,11 @@ class iTopService extends iTopK8s {
 		];
 
 		$ep = new Endpoint($endpoints);
-		$exists = $k8sClient->endpoints()->exists($ep->getMetadata('name'));
+		$exists = $this->k8sClient->endpoints()->exists($ep->getMetadata('name'));
 		if($exists) {
-			$this->result[] = $k8sClient->endpoints()->update($ep);
+			$this->result[] = $this->k8sClient->endpoints()->update($ep);
 		} else {
-			$this->result[] = $k8sClient->endpoints()->create($ep);
+			$this->result[] = $this->k8sClient->endpoints()->create($ep);
 		}
 	}
 
@@ -184,19 +181,16 @@ class iTopService extends iTopK8s {
 	}
 
 	function Run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
-
 		$this->Service($this->selector, $del);
 		$service = new Service($this->Get('service'));
-		$this->exists = $k8sClient->services()->exists($service->getMetadata('name'));
+		$this->exists = $this->k8sClient->services()->exists($service->getMetadata('name'));
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->services()->deleteByName($service->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->services()->deleteByName($service->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->services()->patch($service);
+			$this->result[] = $this->k8sClient->services()->patch($service);
 		} else {
-			$this->result[] = $k8sClient->services()->create($service);
+			$this->result[] = $this->k8sClient->services()->create($service);
 		}
 
 		return ($this->result);
@@ -795,9 +789,6 @@ class iTopSecret extends iTopK8s {
 	}
 
 	function Run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->ns);
-
 		if(!$this->oData) {
 			$del = true;
 		}
@@ -808,15 +799,15 @@ class iTopSecret extends iTopK8s {
 		}
 
 		$secret = new Secret($this->secret);
-		$this->exists = $k8sClient->secrets()->exists($secret->getMetadata('name'));
+		$this->exists = $this->k8sClient->secrets()->exists($secret->getMetadata('name'));
 
 		$r = ['kind'=>"Secret", "message"=>"Secret " . $this->name . " Not Found"];
 		if($del) {
-			if($this->exists) $r = $k8sClient->secrets()->deleteByName($this->name);
+			if($this->exists) $r = $this->k8sClient->secrets()->deleteByName($this->name);
 		} elseif($this->exists) {
-			$r = $k8sClient->secrets()->update($secret);
+			$r = $this->k8sClient->secrets()->update($secret);
 		} else {
-			$r = $k8sClient->secrets()->create($secret);
+			$r = $this->k8sClient->secrets()->create($secret);
 		}
 		$this->result[] = $this->deallog($r);
 		return ($this->result);
@@ -1042,9 +1033,6 @@ class iTopIngress extends iTopK8S {
 	}
 
 	function Run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
 		// 根据manage_svc做不同处理
 		if($this->data['manage_svc'] != 'no') {
 			$service = new iTopService($this->data);
@@ -1058,7 +1046,7 @@ class iTopIngress extends iTopK8S {
 
 		$this->Ingress();
 		$ingress = new Ingress($this->ingress);
-		$this->exists = $k8sClient->ingresses()->exists($ingress->getMetadata('name'));
+		$this->exists = $this->k8sClient->ingresses()->exists($ingress->getMetadata('name'));
 
 		// 因为iTopKubernetes中_updateIngress要将Deployment ingress_list中的所有对象都上线，
 		// 所以即使没有del=true，当对象状态为stock时需也需要del，防止误上线
@@ -1067,11 +1055,11 @@ class iTopIngress extends iTopK8S {
 		}
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->ingresses()->deleteByName($ingress->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->ingresses()->update($ingress);
+			$this->result[] = $this->k8sClient->ingresses()->update($ingress);
 		} else {
-			$this->result[] = $k8sClient->ingresses()->create($ingress);
+			$this->result[] = $this->k8sClient->ingresses()->create($ingress);
 		}
 
 		return ($this->result);
@@ -1170,18 +1158,15 @@ class iTopHPA extends iTopK8s {
 	}
 
 	function Run($del = false) {
-		global $k8sClient;
-		$k8sClient->setNamespace($this->data['k8snamespace_name']);
-
 		$hpa = new HorizontalPodAutoscaler($this->hpa);
-		$this->exists = $k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'));
+		$this->exists = $this->k8sClient->horizontalPodAutoscalers()->exists($hpa->getMetadata('name'));
 
 		if($del) {
-			if($this->exists) $this->result[] = $k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
+			if($this->exists) $this->result[] = $this->k8sClient->horizontalPodAutoscalers()->deleteByName($hpa->getMetadata('name'));
 		} elseif($this->exists) {
-			$this->result[] = $k8sClient->horizontalPodAutoscalers()->update($hpa);
+			$this->result[] = $this->k8sClient->horizontalPodAutoscalers()->update($hpa);
 		} else {
-			$this->result[] = $k8sClient->horizontalPodAutoscalers()->create($hpa);
+			$this->result[] = $this->k8sClient->horizontalPodAutoscalers()->create($hpa);
 		}
 
 		return ($this->result);
