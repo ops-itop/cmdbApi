@@ -558,13 +558,12 @@ class iTopDeployment extends iTopController {
 	function GetEnvs() {
 		parent::GetEnvs();
 
-		if(!$this->isHttp) {
-			return '';
-		}
+		$envstr = [];
+		$envstr['APP_TYPE'] = $this->data['type'];
 
-		$envstr = [
-			'APP_DOMAIN' => $this->domain . "/," . $this->List2Str($this->data['ingress_list'], 'friendlyname'),
-		];
+		if($this->isHttp) {
+			$envstr['APP_DOMAIN'] = $this->domain . "/," . $this->List2Str($this->data['ingress_list'], 'friendlyname');
+		}
 
 		foreach($envstr as $k => $v) {
 			$this->env[] = [
