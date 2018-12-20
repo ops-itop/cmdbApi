@@ -63,20 +63,20 @@ abstract class iTopK8S {
 		$this->k8sClient->setNamespace($this->ns);
 	}
 
-	function dealResult($ret) {
+	function DealResult($ret) {
 		foreach($ret as $val) {
 			$this->result[] = $val;
 		}
 	}
 
-	function get($attr) {
+	function Get($attr) {
 		if(!isset($this->$attr)){
 			return(NULL);
 		}
 		return $this->$attr;
 	}
 
-	function list2str($l, $key) {
+	function List2Str($l, $key) {
 		$s = [];
 		foreach($l as $k => $v) {
 			$s[] = $v[$key];
@@ -90,14 +90,11 @@ class iTopService extends iTopK8s {
 	protected $service;
 	protected $serviceName;
 	protected $ports = [];
-	private $data;
 	private $postfix = "";
 	private $selector = true;
 
 	function __construct($data) {
-		$this->app = $data['applicationsolution_name'];
-		$this->ns = $data['k8snamespace_name'];
-		$this->data = $data;
+		parent::__construct($data);
 
 		// Ingress管理的Service做特殊处理
 		if($this->data['finalclass'] == 'Ingress') {
@@ -115,9 +112,14 @@ class iTopService extends iTopK8s {
 		$this->serviceName = str_replace("_", "-", $this->app) . $this->postfix;
 	}
 
-	private function endpoints($ips) {
+	private function UpdateEndpoints($ips) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->ns);
+
+		// 没有填写endpoint时直接退出
+		if(!$ips) {
+			return '';
+		}
 
 		$ips = str_replace("\r\n", "\n", $ips);
 		$ip_list = explode("\n", $ips);
@@ -153,7 +155,7 @@ class iTopService extends iTopK8s {
 		}
 	}
 
-	function Service($selector=true) {
+	function Service($selector=true, $del = false) {
 		$this->service = [
 			'metadata' => [
 				'name' => $this->serviceName,
@@ -172,18 +174,18 @@ class iTopService extends iTopK8s {
 		];
 
 		// 通过Ingress创建的Service没有selector，并且使用后缀
-		if(!$selector) {
+		if(!$selector && !$del) {
 			unset($this->service['spec']['selector']);
-			$this->endpoints($this->data['endpoints']);
+			$this->UpdateEndpoints($this->data['endpoints']);
 		}
 	}
 
-	function run($del = false) {
+	function Run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->ns);
 
-		$this->Service($this->selector);
-		$service = new Service($this->get('service'));
+		$this->Service($this->selector, $del);
+		$service = new Service($this->Get('service'));
 		$this->exists = $k8sClient->services()->exists($service->getMetadata('name'));
 
 		if($del) {
@@ -248,7 +250,7 @@ class iTopController extends iTopK8s {
 
 		// 获取私有secret
 		$this->privateSecret = new iTopSecret($data);
-		$this->secrets[] = $this->privateSecret->get('secret');
+		$this->secrets[] = $this->privateSecret->Get('secret');
 
 		// 公共secret
 		// ToDo
@@ -265,7 +267,7 @@ class iTopController extends iTopK8s {
 	function GetVolumes() {
 		// 挂载volumes
 		$volumes = new iTopVolume($this->data['volume_list'], $this->app);
-		$this->volumes = $volumes->run();
+		$this->volumes = $volumes->Run();
 		// 挂载宿主机时区
 		$this->volumes['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
 		$this->volumes['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
@@ -301,7 +303,7 @@ class iTopController extends iTopK8s {
 			'APP_ORG' => $this->data['organization_name'],
 			'APP_DESCRIPTION' => str_replace(array("\r", "\n", "\r\n"), " ", $this->data['description']),
 			'APP_ONLINEDATE' => $this->data['move2production'],
-			'APP_CONTACTS' => $this->list2str($this->data['person_list'], 'person_name'),
+			'APP_CONTACTS' => $this->List2Str($this->data['person_list'], 'person_name'),
 			'UPDATEDTIME' =>  (string)time(),
 		];
 
@@ -462,7 +464,7 @@ class iTopController extends iTopK8s {
 
 	function GetAffinity() {
 		$affinity = new iTopAffinity($this->data['affinity_list']);
-		$this->affinity = $affinity->run();
+		$this->affinity = $affinity->Run();
 		if(count($this->affinity) == 0) {
 			$this->affinity = $this->GetDefaultAffinity();
 		}
@@ -517,12 +519,12 @@ class iTopController extends iTopK8s {
 
 	function UpdateService($del) {
 		$service = new iTopService($this->data);
-		$this->dealResult($service->run($del));
+		$this->DealResult($service->Run($del));
 	}
 
-	function run($del = false) {
+	function Run($del = false) {
 		// 处理私有Secret 公共Secret只需挂载即可，不用处理创建更新以及删除
-		$this->dealResult($this->privateSecret->run($del));
+		$this->DealResult($this->privateSecret->Run($del));
 
 		// 处理Service 写成方法是为了在Deployment中可以重写该方法(Worker类型不需要创建Service)
 		$this->UpdateService($del);
@@ -530,7 +532,7 @@ class iTopController extends iTopK8s {
 		// 设置默认HPA
 		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
 			$hpa = new iTopHPA($this->data);
-			$this->dealResult($hpa->run($del));
+			$this->DealResult($hpa->Run($del));
 		}
 
 		return $this->result;
@@ -558,8 +560,12 @@ class iTopDeployment extends iTopController {
 	function GetEnvs() {
 		parent::GetEnvs();
 
+		if(!$this->isHttp) {
+			return '';
+		}
+
 		$envstr = [
-			'APP_DOMAIN' => $this->domain . "/," . $this->list2str($this->data['ingress_list'], 'friendlyname'),
+			'APP_DOMAIN' => $this->domain . "/," . $this->List2Str($this->data['ingress_list'], 'friendlyname'),
 		];
 
 		foreach($envstr as $k => $v) {
@@ -609,13 +615,13 @@ class iTopDeployment extends iTopController {
 		$privateIngress = new iTopIngress($data);
 		// 存在domain_name为空的情况，此时不创建privateIngress
 		if($data['domain_name']) {
-			$this->dealResult($privateIngress->run($del));
+			$this->DealResult($privateIngress->Run($del));
 		}
 
 		// 考虑先下线后上线，下线步骤删除所有ingress的情况，上线步骤应上线所有ingress
 		foreach($this->data['ingress_list'] as $val) {
 			$ing = new iTopIngress($val);
-			$this->dealResult($ing->run($del));
+			$this->DealResult($ing->Run($del));
 		}
 	}
 
@@ -696,8 +702,8 @@ class iTopDeployment extends iTopController {
 		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $this->terminationGracePeriodSeconds;
 	}
 
-	function run($del) {
-		$this->dealResult(parent::run($del));
+	function Run($del = false) {
+		parent::Run($del);
 
 		$this->Deployment();
 		$deployment = new Deployment($this->deployment);
@@ -726,11 +732,13 @@ class iTopDeployment extends iTopController {
 class iTopSecret extends iTopK8s {
 	private $name;
 	protected $secret;
-	private $data;      // secret数据
 	private $isYaml = false;
+	private $oData;    // Secret data
 
 	function __construct($data) {
-		$this->data = $data['data'];
+		parent::__construct($data);
+
+		$this->oData = $data['data'];
 
 		// 私有secret名称直接用app名称，公共secret用app名称加secret名称，Controller对象中私有secret调用时将data['name']设置为空值
 		$this->name = $data['applicationsolution_name'];
@@ -741,31 +749,29 @@ class iTopSecret extends iTopK8s {
 		// 加前缀 便于区分
 		$this->name = SECRET_PRE . $this->name;
 
-		$this->ns = $data['k8snamespace_name'];
-
 		$this->_check();
 		$this->Secret();
 	}
 
 	// 检查是否是yaml格式
 	function _check() {
-		if(!$this->data) {
-			$this->data = [];
+		if(!$this->oData) {
+			$this->oData = [];
 			$this->isYaml = true;  // secret为空时执行删除逻辑， 不判断是否是yaml
 			return;
 		}
-		$parsed = yaml_parse($this->data);
+		$parsed = yaml_parse($this->oData);
 		if(is_array($parsed)) {
-			$this->data = $parsed;
+			$this->oData = $parsed;
 			$this->isYaml = true;
 		} else {
-			$this->data = [];
+			$this->oData = [];
 		}
 	}
 
 	function Secret() {
 		$secret_data = [];
-		foreach($this->data as $k => $v) {
+		foreach($this->oData as $k => $v) {
 			$secret_data[$k] = base64_encode($v);
 		}
 		$this->secret = [
@@ -786,11 +792,11 @@ class iTopSecret extends iTopK8s {
 		return $r;
 	}
 
-	function run($del = false) {
+	function Run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->ns);
 
-		if(!$this->data) {
+		if(!$this->oData) {
 			$del = true;
 		}
 
@@ -889,7 +895,7 @@ class iTopAffinity {
 		}
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $val) {
 			$affinitytype = $val['k8saffinity_affinitytype'];
 			if(in_array($affinitytype, ["nodeaffinity", "nodeantiaffinity"])) {
@@ -924,7 +930,7 @@ class iTopVolume {
 		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $key => $val) {
 			$volumetype = $val['k8svolume_type'];
 			if($volumetype == "hostpath") {
@@ -969,13 +975,12 @@ class iTopProbe {
 }
 
 class iTopIngress extends iTopK8S {
-	private $data;
 	private $name;
 	private $ingress;
 	private $serviceName;
 
 	function __construct($data) {
-		$this->data = $data;
+		parent::__construct($data);
 		$this->serviceName = str_replace("_", "-", $data['applicationsolution_name']);
 		$this->ingress = [];
 		$this->getName();
@@ -1014,7 +1019,7 @@ class iTopIngress extends iTopK8S {
 			$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => 'default-tls'];
 		}
 		$customNginx = new iTopIngressAnnotations($data['ingressannotations_list']);
-		$annotations = $customNginx->run();
+		$annotations = $customNginx->Run();
 		$annotations['kubernetes.io/ingress.class'] = $data['k8snamespace_name'];
 		$this->ingress = [
 			'metadata' => [
@@ -1031,7 +1036,7 @@ class iTopIngress extends iTopK8S {
 		}
 	}
 
-	function run($del = false) {
+	function Run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 
@@ -1039,11 +1044,11 @@ class iTopIngress extends iTopK8S {
 		if($this->data['manage_svc'] != 'no') {
 			$service = new iTopService($this->data);
 			if($this->data['manage_svc'] == "clean") {
-				$this->dealResult($service->run(true));
+				$this->DealResult($service->Run(true));
 			} else {
-				$this->dealResult($service->run($del));
+				$this->DealResult($service->Run($del));
 			}
-			$this->serviceName = $service->get('serviceName');
+			$this->serviceName = $service->Get('serviceName');
 		}
 
 		$this->Ingress();
@@ -1077,7 +1082,7 @@ class iTopIngressAnnotations {
 		$this->annotations = [];
 	}
 
-	function run() {
+	function Run() {
 		foreach($this->data as $val) {
 			if($val['enable'] != 'yes') {
 				continue; // 解决暂时下线某项配置，以后可能还用的场景
@@ -1094,14 +1099,13 @@ class iTopIngressAnnotations {
 }
 
 class iTopHPA extends iTopK8s {
-	private $data;
 	private $hpa;
 	private $min;
 	private $max;
 	private $metrics;
 
 	function __construct($data) {
-		$this->data = $data;
+		parent::__construct($data);
 		$this->metrics = [];
 		if($this->data['finalclass'] == "Deployment") {
 			$this->defaultHpa();
@@ -1164,7 +1168,7 @@ class iTopHPA extends iTopK8s {
 		];
 	}
 
-	function run($del = false) {
+	function Run($del = false) {
 		global $k8sClient;
 		$k8sClient->setNamespace($this->data['k8snamespace_name']);
 
@@ -1322,11 +1326,11 @@ if($finalclass == "Ingress") {
 	$itopK8s = new iTopIngress($data);
 }
 if($finalclass == "Deployment") {
-	$itopK8s = new iTopKubernetes($data);
+	$itopK8s = new iTopDeployment($data);
 }
 
 try {
-	$ret = $itopK8s->run($del);
+	$ret = $itopK8s->Run($del);
 } catch(Exception $e) {
 	$message = json_decode($e->getMessage(), true);
 	if(!$message) $message = $e->getMessage();
