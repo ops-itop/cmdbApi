@@ -547,11 +547,12 @@ class iTopDeployment extends iTopController {
 		$domain = explode("/", $data['url']);
 		$this->domain = end($domain);
 
-		parent::__construct($data);
-
+		// 需要在执行父类构造函数之前获取正确的isHttp值
 		if($this->data['type'] != 'web') {
 			$this->isHttp = false;
 		}
+
+		parent::__construct($data);
 	}
 
 	function GetEnvs() {
