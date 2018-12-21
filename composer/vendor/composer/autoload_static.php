@@ -128,6 +128,17 @@ class ComposerStaticInit1b805ceb20fade59205b4dd6c5f8d745
                 0 => __DIR__ . '/..' . '/confirm-it-solutions/php-zabbix-api/build',
             ),
         ),
+        'F' => 
+        array (
+            'Flow\\JSONPath\\Test' => 
+            array (
+                0 => __DIR__ . '/..' . '/flow/jsonpath/tests',
+            ),
+            'Flow\\JSONPath' => 
+            array (
+                0 => __DIR__ . '/..' . '/flow/jsonpath/src',
+            ),
+        ),
     );
 
     public static function getInitializer(ClassLoader $loader)

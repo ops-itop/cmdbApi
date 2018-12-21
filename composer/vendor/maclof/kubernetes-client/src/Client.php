@@ -161,8 +161,8 @@ class Client
 		'deployments'            => 'Repositories\DeploymentRepository',
 		'ingresses'              => 'Repositories\IngressRepository',
 
-        // autoscaling/v2beta1
-        'horizontalPodAutoscalers'  => 'Repositories\HorizontalPodAutoscalerRepository',
+		// autoscaling/v2beta1
+		'horizontalPodAutoscalers'  => 'Repositories\HorizontalPodAutoscalerRepository',
 
 		// networking.k8s.io/v1
 		'networkPolicies'        => 'Repositories\NetworkPolicyRepository',
@@ -320,7 +320,7 @@ class Client
 	 */
 	public function sendRequest($method, $uri, $query = [], $body = [], $namespace = true, $apiVersion = null)
 	{
-		$baseUri = $apiVersion ? '/apis/' . $apiVersion : '/api/' . $this->apiVersion;
+		$baseUri = $apiVersion ? 'apis/' . $apiVersion : 'api/' . $this->apiVersion;
 		if ($namespace) {
 			$baseUri .= '/namespaces/' . $this->namespace;
 		}
@@ -368,7 +368,7 @@ class Client
 
 	/**
 	 * Magic call method to grab a class instance.
-	 * 
+	 *
 	 * @param  string $name
 	 * @param  array  $args
 	 * @return \stdClass
