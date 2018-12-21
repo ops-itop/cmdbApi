@@ -270,6 +270,9 @@ class iTopController extends iTopK8s {
 		$this->volumes['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
 		// 挂载secret
 		foreach($this->secrets as $key => $val) {
+			if(!$val['data']) {
+				continue;  // 配置项为空的情况
+			}
 			$secretName = $val['metadata']['name'];
 			$name = $secretName . "-appconfig";
 			$this->volumes['volumeMounts'][] = ['name'=>$name, 'mountPath'=>APPCONFIG_PATH, 'readOnly'=>true];
@@ -801,7 +804,7 @@ class iTopSecret extends iTopK8s {
 		$secret = new Secret($this->secret);
 		$this->exists = $this->k8sClient->secrets()->exists($secret->getMetadata('name'));
 
-		$r = ['kind'=>"Secret", "message"=>"Secret " . $this->name . " Not Found"];
+		$r = ['kind'=>"Secret", 'metadata'=>['name'=>$this->name], "message"=>" Not Found"];
 		if($del) {
 			if($this->exists) $r = $this->k8sClient->secrets()->deleteByName($this->name);
 		} elseif($this->exists) {
