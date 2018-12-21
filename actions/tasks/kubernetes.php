@@ -1020,6 +1020,12 @@ class iTopIngress extends iTopK8S {
 		$customNginx = new iTopIngressAnnotations($data['ingressannotations_list']);
 		$annotations = $customNginx->Run();
 		$annotations['kubernetes.io/ingress.class'] = $data['k8snamespace_name'];
+
+		// 考虑同一个域名多location的情况,HTTPS可能同时存在on和off，为了避免308引起的问题，统一https为关闭的ingress添加nginx.ingress.kubernetes.io/ssl-redirect配置
+		if($this->data['https'] == "off" && !array_key_exists("nginx.ingress.kubernetes.io/ssl-redirect", $annotations)) {
+			$annotations['nginx.ingress.kubernetes.io/ssl-redirect'] = "false";
+		}
+
 		$this->ingress = [
 			'metadata' => [
 				'name' => $this->name,
