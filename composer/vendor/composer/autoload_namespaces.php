@@ -7,4 +7,6 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'ZabbixApi' => array($vendorDir . '/confirm-it-solutions/php-zabbix-api/build'),
+    'Flow\\JSONPath\\Test' => array($vendorDir . '/flow/jsonpath/tests'),
+    'Flow\\JSONPath' => array($vendorDir . '/flow/jsonpath/src'),
 );

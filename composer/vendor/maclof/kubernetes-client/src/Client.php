@@ -161,8 +161,8 @@ class Client
 		'deployments'            => 'Repositories\DeploymentRepository',
 		'ingresses'              => 'Repositories\IngressRepository',
 
-        // autoscaling/v2beta1
-        'horizontalPodAutoscalers'  => 'Repositories\HorizontalPodAutoscalerRepository',
+		// autoscaling/v2beta1
+		'horizontalPodAutoscalers'  => 'Repositories\HorizontalPodAutoscalerRepository',
 
 		// networking.k8s.io/v1
 		'networkPolicies'        => 'Repositories\NetworkPolicyRepository',
@@ -174,6 +174,13 @@ class Client
 	 * @var array
 	 */
 	protected $classInstances = [];
+
+	/**
+	 * header for patch.
+	 *
+	 * @var array
+	 */
+	protected $patchHeader = ['Content-Type' => 'application/strategic-merge-patch+json'];
 
 	/**
 	 * The constructor.
@@ -233,6 +240,21 @@ class Client
 	public function setNamespace($namespace)
 	{
 		$this->namespace = $namespace;
+	}
+
+	/**
+	 * Set patch header
+	 *
+	 * @param patch type
+	 */
+	public function setPatchType($patchType = "strategic") {
+		if ($patchType == "merge") {
+			$this->patchHeader = ['Content-Type' => 'application/merge-patch+json'];
+		} elseif ($patchType == "json") {
+			$this->patchHeader = ['Content-Type' => 'application/json-patch+json'];
+		} else {
+			$this->patchHeader = ['Content-Type' => 'application/strategic-merge-patch+json'];
+		}
 	}
 
 	/**
@@ -320,7 +342,7 @@ class Client
 	 */
 	public function sendRequest($method, $uri, $query = [], $body = [], $namespace = true, $apiVersion = null)
 	{
-		$baseUri = $apiVersion ? '/apis/' . $apiVersion : '/api/' . $this->apiVersion;
+		$baseUri = $apiVersion ? 'apis/' . $apiVersion : 'api/' . $this->apiVersion;
 		if ($namespace) {
 			$baseUri .= '/namespaces/' . $this->namespace;
 		}
@@ -335,7 +357,7 @@ class Client
 		}
 
 		if ($method === 'PATCH') {
-			$requestOptions['headers'] = ['Content-Type' => 'application/strategic-merge-patch+json'];
+			$requestOptions['headers'] = $this->patchHeader;
 		}
 
 		if (!$this->isUsingGuzzle6()) {
@@ -368,7 +390,7 @@ class Client
 
 	/**
 	 * Magic call method to grab a class instance.
-	 * 
+	 *
 	 * @param  string $name
 	 * @param  array  $args
 	 * @return \stdClass

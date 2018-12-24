@@ -188,6 +188,7 @@ class iTopService extends iTopK8s {
 		if($del) {
 			if($this->exists) $this->result[] = $this->k8sClient->services()->deleteByName($service->getMetadata('name'));
 		} elseif($this->exists) {
+			$this->k8sClient->setPatchType("merge");  // 更改service端口时patch type需要为merge
 			$this->result[] = $this->k8sClient->services()->patch($service);
 		} else {
 			$this->result[] = $this->k8sClient->services()->create($service);
