@@ -91,7 +91,6 @@ class iTopService extends iTopK8s {
 	protected $service;
 	protected $serviceName;
 	protected $ports = [];
-	private $postfix = "";
 	private $selector = true;
 
 	function __construct($data) {
@@ -101,9 +100,8 @@ class iTopService extends iTopK8s {
 		if($this->data['finalclass'] == 'Ingress') {
 			$ports = $this->data['serviceport'];
 			// 考虑到同一个app可能添加了多个外部负载，用ingress name加后缀作为外部服务的Service名称
-			$this->postfix = _getconfig("ingress_external_prefix", "-forexternal");
 			// DNS-1035 label must consist of lower case alphanumeric characters or '-', start with an alphabetic character, and end with an alphanumeric character
-			$this->serviceName = str_replace(".", "-", $data['name']) . $this->postfix;
+			$this->serviceName = str_replace(".", "-", $data['name']);
 			$this->selector = false;
 		} else {
 			$ports = $this->data['containerport'];
@@ -975,6 +973,7 @@ class iTopIngress extends iTopK8S {
 	private $name;
 	private $ingress;
 	private $serviceName;
+	private $externalService;
 
 	function __construct($data) {
 		parent::__construct($data);
@@ -983,17 +982,20 @@ class iTopIngress extends iTopK8S {
 		$this->GetName();
 		// 每一个外部服务负载均衡应对应唯一的Service，防止只用 app-后缀 方案可能存在的配置覆盖问题
 		// 用 IngressNmae-后缀 的方式提供唯一名称
-		$this->data['name'] = $this->name;
+		$this->data['name'] = $this->externalService;
 	}
 
 	private function GetName() {
 		$matches = [];
 		$this->name = $this->app . "-" . $this->data['domain_name'] . "-" . $this->data['location'];
-		$hash = substr(md5($this->name), 0, 5);
+		$md5Str = md5($this->name);
+		$hash = substr($md5Str, 0, 5);
 		// By convention, the names of Kubernetes resources should be up to maximum length of 253 characters and consist of lower case alphanumeric characters, -, and .
 		preg_match_all('/[a-z0-9\.]+/', $this->name, $matches);
 		$this->name = implode("-", $matches[0]);
 		$this->name = $this->name . "-" . $hash;
+		// 取16位md5值
+		$this->externalService = $this->app . "-forexternal-" . substr($md5Str, 8, 16);
 	}
 
 	private function Ingress() {
