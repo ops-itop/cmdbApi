@@ -1052,8 +1052,8 @@ class iTopIngress extends iTopK8S {
 				$this->DealResult($service->Run(true));
 			} else {
 				$this->DealResult($service->Run($del));
+				$this->serviceName = $service->Get('serviceName');
 			}
-			$this->serviceName = $service->Get('serviceName');
 		}
 
 		$this->Ingress();
