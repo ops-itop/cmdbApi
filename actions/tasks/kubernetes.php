@@ -214,6 +214,8 @@ class iTopController extends iTopK8s {
 	protected $terminationGracePeriodSeconds;
 	protected $secrets = [];
 	protected $privateSecret;
+	protected $command;
+	protected $args;
 
 	function __construct($data) {
 		parent::__construct($data);
@@ -235,6 +237,8 @@ class iTopController extends iTopK8s {
 		$this->GetProbe();
 		$this->GetLifecycle();
 		$this->GetTerminationGracePeriodSeconds();
+		$this->GetCommand();
+		$this->GetArgs();
 	}
 
 	function GetSecrets() {
@@ -502,6 +506,20 @@ class iTopController extends iTopK8s {
 		}
 	}
 
+	function GetCommand() {
+		$command = json_decode($this->data['command'], true);
+		if($this->data['command'] && is_array($command)) {
+			$this->command = $command;
+		}
+	}
+
+	function GetArgs() {
+		$args = json_decode($this->data['args'], true);
+		if($this->data['args'] && is_array($args)) {
+			$this->args = $args;
+		}
+	}
+
 	function DeletePod() {
 		$del = true;
 		// replicaSet 和 Pod 需要单独删除
@@ -696,6 +714,14 @@ class iTopDeployment extends iTopController {
 
 		if($this->lifecycle) {
 			$this->deployment['spec']['template']['spec']['containers'][0]['lifecycle'] = $this->lifecycle;
+		}
+
+		if($this->command) {
+			$this->deployment['spec']['template']['spec']['containers'][0]['command'] = $this->command;
+		}
+
+		if($this->args) {
+			$this->deployment['spec']['template']['spec']['containers'][0]['args'] = $this->args;
 		}
 
 		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $this->terminationGracePeriodSeconds;
