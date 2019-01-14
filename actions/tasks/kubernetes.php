@@ -996,7 +996,7 @@ class iTopProbe {
 				return false;
 			}
 		} elseif($val['type'] == "tcpSocket") {
-			$probe['tcpSocket']['port'] = $val['tcpSocket_port'];
+			$probe['tcpSocket']['port'] = (int)$val['tcpSocket_port'];
 		} else {
 			return false;
 		}
