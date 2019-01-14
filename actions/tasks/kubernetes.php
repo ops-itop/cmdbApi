@@ -1007,7 +1007,7 @@ class iTopProbe {
 		if(array_key_exists("probe_list", $this->data)) {
 			foreach($this->data['probe_list'] as $val) {
 				if($val['k8sprobe_name'] == "readinessProbe") {
-					$probe = $this->probe($val);
+					$probe = $this->GetProbe($val);
 					if($probe) return $probe;
 				}
 			}
@@ -1019,7 +1019,7 @@ class iTopProbe {
 		if(array_key_exists("probe_list", $this->data)) {
 			foreach($this->data['probe_list'] as $val) {
 				if($val['k8sprobe_name'] == "livenessProbe") {
-					$probe = $this->probe($val);
+					$probe = $this->GetProbe($val);
 					if($probe) return $probe;
 				}
 			}
