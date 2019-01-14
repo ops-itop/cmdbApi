@@ -972,11 +972,43 @@ class iTopProbe {
 		$this->port = (int)$ports[0];
 	}
 
+	function GetProbe($val) {
+		$probe = [];
+		$common_conf = @yaml_parse($val['common_conf']);
+		if(is_array($common_conf)) {
+			foreach($common_conf as $k => $v) {
+				$probe[$k] = $v;
+			}
+		}
+
+		if($val['type'] == "httpGet") {
+			$httpGet = @yaml_parse($val['httpGet']);
+			if(is_array($httpGet)) {
+				$probe['httpGet'] = $httpGet;
+			} else {
+				return false;
+			}
+		} elseif($val['type'] == "exec") {
+			$command = @yaml_parse($val['exec_command']);
+			if(is_array($command)) {
+				$probe['exec'] = $command;
+			} else {
+				return false;
+			}
+		} elseif($val['type'] == "tcpSocket") {
+			$probe['tcpSocket']['port'] = $val['tcpSocket_port'];
+		} else {
+			return false;
+		}
+		return $probe;
+	}
+
 	function readinessProbe() {
 		if(array_key_exists("probe_list", $this->data)) {
 			foreach($this->data['probe_list'] as $val) {
-				if($val['probe_type'] == "readinessProbe") {
-
+				if($val['k8sprobe_name'] == "readinessProbe") {
+					$probe = $this->probe($val);
+					if($probe) return $probe;
 				}
 			}
 		}
@@ -986,8 +1018,9 @@ class iTopProbe {
 	function livenessProbe() {
 		if(array_key_exists("probe_list", $this->data)) {
 			foreach($this->data['probe_list'] as $val) {
-				if($val['probe_type'] == "readinessProbe") {
-
+				if($val['k8sprobe_name'] == "livenessProbe") {
+					$probe = $this->probe($val);
+					if($probe) return $probe;
 				}
 			}
 		}
