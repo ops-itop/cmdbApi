@@ -27,6 +27,8 @@ bcscale(2);
 $iTopAPI = new \iTopApi\iTopClient(ITOPURL, ITOPUSER, ITOPPWD, $version='1.2');
 $zbxAPI = new \ZabbixApi\ZabbixApi(ZBXURL, ZBXUSER, ZBXPWD);
 
+$error_log = [];
+
 /**
  * 统计以下指标
  * cpu总数, cpu使用率 
@@ -52,7 +54,7 @@ function getAllServer()
 {
 	global $iTopAPI;
 	$oql = "SELECT Server WHERE status!='obsolete'";
-	$output_fields = "name,organization_name";
+	$output_fields = "name,organization_name,applicationsolution_list";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
 	$sns = [];
@@ -63,7 +65,10 @@ function getAllServer()
 				if(in_array($v['fields'][$key], $val)) continue 2;
 			}
 		}
-		$sns[] = $v['fields']['name'];
+		foreach($v['fields']['applicationsolution_list'] as $val) {
+			$sns[$val['applicationsolution_name']][] = $v['fields']['name'];
+		}
+		$sns['all'][] = $v['fields']['name'];
 	}
 	return $sns;
 }
@@ -131,29 +136,28 @@ function cpuUtilPercent(&$metrics) {
 	}
 }
 
-function calMetrics() {
+function calMetrics($hosts) {
+	global $error_log;
+	global $zabbixHosts;
 	$metrics = ['cpu_all'=>0,'cpu_avail'=>0,'mem_all'=>0,'mem_avail'=>0,'disk_all'=>0,'disk_avail'=>0];
-	$cmdbHosts = getAllServer();
-	$zabbixHosts = zabbixAllHostGet();
 
-	$metrics['expect_count'] = count($cmdbHosts);
+	$metrics['expect_count'] = count($hosts);
 	$calHosts = [];
 	foreach($zabbixHosts as $k => $v) {
-		if(array_key_exists('asset_tag', $v['inventory']) && in_array($v['inventory']['asset_tag'], $cmdbHosts)) {
+		if(array_key_exists('asset_tag', $v['inventory']) && in_array($v['inventory']['asset_tag'], $hosts)) {
 			$calHosts[] = $v['inventory'];
 		}
 	}
 
 	$metrics['real_count'] = count($calHosts);
 	$metrics['error_count'] = 0;
-	$metrics['error_log'] = [];
 
 	foreach($calHosts as $k => $v) {
 		foreach($v as $key => $val) {
 			if(!$val) {
 				$metrics['real_count']--;
 				$metrics['error_count']++;
-				$metrics['error_log'][$v['hostid']] = $v['asset_tag'];
+				$error_log[$v['hostid']] = $v['asset_tag'];
 				continue 2;
 			}
 		}
@@ -167,7 +171,7 @@ function calMetrics() {
 		$metrics['disk_avail'] = bcadd($metrics['disk_avail'],$v['hardware'] - $v['hardware'] * $v['software']);
 	}
 	cpuUtilPercent($metrics);
-	return $metrics;
+	return toFloat($metrics);
 }
 
 function toFloat($metrics) {
@@ -176,21 +180,35 @@ function toFloat($metrics) {
 	}
 	return $metrics;
 }
-$metrics = calMetrics();
-$error_log = $metrics['error_log'];
-unset($metrics['error_log']);
 
-$metrics = toFloat($metrics);
-$client = new InfluxDB\Client($config['influx']['host'], $config['influx']['port']);
-$database = $client->selectDB($config['influx']['utildb']);
+$cmdbHosts = getAllServer();
+$zabbixHosts = zabbixAllHostGet();
+
 $points = [];
-$time = time();
-$points[] = new InfluxDB\Point($config['influx']['utilmeasur'], null, [], $metrics, $time);
+$pointsApp = [];
+
+foreach($cmdbHosts as $key => $val) {
+	$measurement = $config['influx']['utilmeasur'];
+	$measurementApp = $measurement . "_app";
+
+	$metrics = calMetrics($val);
+
+	$client = new InfluxDB\Client($config['influx']['host'], $config['influx']['port']);
+	$database = $client->selectDB($config['influx']['utildb']);
+	$time = time();
+	$pointsApp[] = new InfluxDB\Point($measurementApp, null, ["app"=>$key], $metrics, $time);
+	if($key == "all") {
+		$points[] = new InfluxDB\Point($measurement, null, [], $metrics, $time);
+	}
+}
+
 $result = "not write";
 if($PRODUCT) {
 	$result = $database->writePoints($points, InfluxDB\Database::PRECISION_SECONDS, null);
+	$result .= $database->writePoints($pointsApp, InfluxDB\Database::PRECISION_SECONDS, null);
 }
 print_r("influxdb write status: " . $result . "\n");
 print_r("error_log: \n" . implode("\n", $error_log) . "\n");
 print_r("metrics: \n");
+var_dump($pointsApp);
 var_dump($points);
