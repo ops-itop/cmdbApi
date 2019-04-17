@@ -79,15 +79,22 @@ function getDomains() {
 		foreach($deploy_domain as $val) {
 			$url = explode("/", $val['fields']['url']);
 			$domain = end($url);
+			$item = ['ns' => $val['fields']['k8snamespace_name'], 'domain' => $domain];
 			if($domain) {
-				$domains[] = ['ns' => $val['fields']['k8snamespace_name'], 'domain' => $domain];
+				$item = ['ns' => $val['fields']['k8snamespace_name'], 'domain' => $domain];
+				if(!in_array($item, $domains)) {
+					$domains[] = $item;
+				}
 			}
 		}
 	}
 
 	if($ingress_domain) {
 		foreach($ingress_domain as $val) {
-			$domains[] = ['ns' => $val['fields']['k8snamespace_name'], 'domain' => $val['fields']['domain_name']];
+			$item = ['ns' => $val['fields']['k8snamespace_name'], 'domain' => $val['fields']['domain_name']];
+			if(!in_array($item, $domains)) {
+				$domains[] = $item;
+			}
 		}
 	}
 	return $domains;
@@ -120,9 +127,10 @@ function arrtojson($arr) {
 }
 
 // 方便直接提工单的形式
-function arrtojira($arr) {
+function jira() {
+	global $result;
 	$items = [];
-	foreach($arr as $val) {
+	foreach($result['manual'] as $val) {
 		$items[] = $val['domain'] . " CNAME " . $val['expact'];
 	}
 	$jira = implode("\r\n", $items);
@@ -140,7 +148,7 @@ if(isset($_GET['show'])) {
 
 if(isset($_GET['format'])) { 
 	if($_GET['format'] == "json") die(arrtojson($show));
-	if($_GET['format'] == "jira") die(arrtojira($show));
+	if($_GET['format'] == "jira") die(jira($show));
 	die(arrtocsv($show));
 } else {
 	die(arrtocsv($show));
