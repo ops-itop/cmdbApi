@@ -133,7 +133,11 @@ function jira() {
 	foreach($result['manual'] as $val) {
 		$items[] = $val['domain'] . " CNAME " . $val['expact'];
 	}
-	$jira = implode("\r\n", $items);
+	if(!$items) {
+		$jira = "All is well";
+	} else {
+		$jira = implode("\r\n", $items);
+	}
 	return $jira;
 }
 
