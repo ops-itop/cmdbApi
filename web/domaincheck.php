@@ -118,7 +118,7 @@ function arrtocsv($arr) {
 	foreach($arr as $val) {
 		$items[] = implode(",", $val);
 	}
-	$csv = implode("\n", $items);
+	$csv = implode("<br>", $items);
 	return $csv;
 }
 
@@ -136,7 +136,7 @@ function jira() {
 	if(!$items) {
 		$jira = "All is well";
 	} else {
-		$jira = implode("\r\n", $items);
+		$jira = implode("<br>", $items);
 	}
 	return $jira;
 }
