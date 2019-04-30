@@ -490,6 +490,11 @@ class iTopController extends iTopK8s {
 	}
 
 	function GetSideCars() {
+		/* sidecar 是否要创建独立的secret，环境变量及volume?
+		 * 1. 独立 : 可以增加隔离性，但是管理麻烦
+		 * 2. 使用主容器配置: 管理方便
+		 * 选择第二种方案实现。其中，环境变量有和容器相关部分，不能全部使用主容器配置
+		 */
 		$sidecar_list = $this->data['sidecar_list'];
 		foreach($sidecar_list as $sc) {
 			$sidecar = GetData($sc['sidecarver_id'], 'SideCarVer');
@@ -497,8 +502,11 @@ class iTopController extends iTopK8s {
 			$sidecar['cpu_limit'] = $sc['cpu_limit'];
 			$sidecar['mem_request'] = $sc['mem_request'];
 			// 需要设置sidecar的app名称及命名空间
-			$sidecar['applicationsolution_name'] = $this->app . "-" . $sc['sidecarver_name'];
+			$sidecar['applicationsolution_name'] = $this->app;
 			$sidecar['k8snamespace_name'] = $this->ns;
+			$sidecar['person_list'] = $this->data['person_list'];
+			// 根据app的状态决定是否要删除sidecar单独添加的secret等资源
+			$sidecar['status'] = $this->data['status'];
 			
 			// 传入主容器的secret数据，处理时过滤出前缀为 sidecar_$sidecarname_ 的key
 			$sidecar['secret'] = $this->data['secret'];
@@ -1063,6 +1071,7 @@ class iTopProbe {
 class iTopSideCar extends iTopController {
 	function __construct($data) {
 		parent::__construct($data);
+		$this->FilterEnv();
 	}
 	
 	// 重载此函数，直接返回空
@@ -1070,9 +1079,50 @@ class iTopSideCar extends iTopController {
 		return false;
 	}
 	
+	// 处理env，替换containerName
+	function FilterEnv() {
+		foreach($this->env as $key => $val) {
+			if(array_key_exists('valueFrom', $val) && array_key_exists('resourceFieldRef', $val['valueFrom']) && array_key_exists('containerName', $val['valueFrom']['resourceFieldRef'])) {
+				$val['valueFrom']['resourceFieldRef']['containerName'] = $this->data['k8sappstore_name'];
+				$this->env[$key] = $val;
+			}
+		}
+	}
+	
 	// 此处$del没啥用
 	function Run($del = false) {
-		print_r($this->env);die();
+		// 这里的 data['status']是传参过来的app的status，不是sidecarver的status。当app下线时，执行删除sidecar创建的资源
+		// SideCarVer不管理任何k8s 资源，不应执行 parent::Run();
+		$container = [
+			'name' => $this->data['k8sappstore_name'],
+			'image' => $this->image,
+			'resources' => $this->resources,
+			'env' => $this->env,
+			'ports' => $this->ports,
+			'volumeMounts' => $this->volumes['volumeMounts'],
+			'imagePullPolicy' => $this->imagePullPolicy,
+		];
+		
+		if($this->readinessProbe) {
+			$container['readinessProbe'] = $this->readinessProbe;
+		}
+
+		if($this->livenessProbe) {
+			$container['livenessProbe'] = $this->livenessProbe;
+		}
+		if($this->lifecycle) {
+			$container['lifecycle'] = $this->lifecycle;
+		}
+
+		if($this->command) {
+			$container['command'] = $this->command;
+		}
+
+		if($this->args) {
+			$container['args'] = $this->args;
+		}
+		
+		return $container;
 	}
 }
 
