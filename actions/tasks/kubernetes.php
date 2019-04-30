@@ -515,7 +515,7 @@ class iTopController extends iTopK8s {
 			// $sidecar['volume_list'] = $this->data['volume_list'];
 			
 			$oSc = new iTopSideCar($sidecar);
-			$sidecars[] = $oSc->Run();
+			$this->sidecars[] = $oSc->Run();
 		}
 	}
 
