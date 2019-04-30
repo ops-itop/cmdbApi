@@ -203,6 +203,7 @@ class iTopController extends iTopK8s {
 	protected $env = [];
 	protected $ports;
 	protected $volumes;
+	protected $sidecars = [];
 	protected $imagePullPolicy;
 	protected $hostNetwork = false;
 	protected $livenessProbe;
@@ -239,6 +240,9 @@ class iTopController extends iTopK8s {
 		$this->GetTerminationGracePeriodSeconds();
 		$this->GetCommand();
 		$this->GetArgs();
+		
+		// sidecars放在最后，可能需要用到env， secret, volume等
+		$this->GetSideCars();
 	}
 
 	function GetSecrets() {
@@ -485,6 +489,28 @@ class iTopController extends iTopK8s {
 		$this->readinessProbe = $probe->readinessProbe();
 	}
 
+	function GetSideCars() {
+		$sidecar_list = $this->data['sidecar_list'];
+		foreach($sidecar_list as $sc) {
+			$sidecar = GetData($sc['sidecarver_id'], 'SideCarVer');
+			$sidecar['cpu_request'] = $sc['cpu_request'];
+			$sidecar['cpu_limit'] = $sc['cpu_limit'];
+			$sidecar['mem_request'] = $sc['mem_request'];
+			// 需要设置sidecar的app名称及命名空间
+			$sidecar['applicationsolution_name'] = $this->app . "-" . $sc['sidecarver_name'];
+			$sidecar['k8snamespace_name'] = $this->ns;
+			
+			// 传入主容器的secret数据，处理时过滤出前缀为 sidecar_$sidecarname_ 的key
+			$sidecar['secret'] = $this->data['secret'];
+			
+			// 未来可能需要处理共享volume的问题，考虑和secret类似用前缀区分
+			// $sidecar['volume_list'] = $this->data['volume_list'];
+			
+			$oSc = new iTopSideCar($sidecar);
+			$sidecars[] = $oSc->Run();
+		}
+	}
+
 	function GetLifecycle() {
 		$sec = '45';
 		if(array_key_exists("prestop", $this->data) && $this->data['prestop']) {
@@ -722,6 +748,12 @@ class iTopDeployment extends iTopController {
 
 		if($this->args) {
 			$this->deployment['spec']['template']['spec']['containers'][0]['args'] = $this->args;
+		}
+		
+		if($this->sidecars) {
+			foreach($this->sidecars as $sidecar) {
+				$this->deployment['spec']['template']['spec']['containers'][] = $sidecar;
+			}
 		}
 
 		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $this->terminationGracePeriodSeconds;
@@ -1025,6 +1057,22 @@ class iTopProbe {
 			}
 		}
 		return ["tcpSocket"=>["port" => $this->port], "initialDelaySeconds"=>_getconfig("kubernetes_liveness_period", 60),"periodSeconds" => _getconfig("kubernetes_liveness_period", 5)];
+	}
+}
+
+class iTopSideCar extends iTopController {
+	function __construct($data) {
+		parent::__construct($data);
+	}
+	
+	// 重载此函数，直接返回空
+	function GetSideCars() {
+		return false;
+	}
+	
+	// 此处$del没啥用
+	function Run($del = false) {
+		print_r($this->env);die();
 	}
 }
 
