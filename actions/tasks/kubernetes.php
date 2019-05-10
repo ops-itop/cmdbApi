@@ -501,6 +501,7 @@ class iTopController extends iTopK8s {
 			$sidecar['cpu_request'] = $sc['cpu_request'];
 			$sidecar['cpu_limit'] = $sc['cpu_limit'];
 			$sidecar['mem_request'] = $sc['mem_request'];
+			$sidecar['containerport'] = $sc['containerport'];
 			// 需要设置sidecar的app名称及命名空间
 			$sidecar['applicationsolution_name'] = $this->app;
 			$sidecar['k8snamespace_name'] = $this->ns;
