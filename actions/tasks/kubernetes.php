@@ -1071,8 +1071,10 @@ class iTopProbe {
 }
 
 class iTopSideCar extends iTopController {
+	private $containerName;
 	function __construct($data) {
 		parent::__construct($data);
+		$this->containerName = $this->data['sidecar_name'] . "-" . str_replace(".", "-", $this->data['version']);
 		$this->FilterEnv();
 	}
 	
@@ -1085,7 +1087,7 @@ class iTopSideCar extends iTopController {
 	function FilterEnv() {
 		foreach($this->env as $key => $val) {
 			if(array_key_exists('valueFrom', $val) && array_key_exists('resourceFieldRef', $val['valueFrom']) && array_key_exists('containerName', $val['valueFrom']['resourceFieldRef'])) {
-				$val['valueFrom']['resourceFieldRef']['containerName'] = $this->data['sidecar_name'];
+				$val['valueFrom']['resourceFieldRef']['containerName'] = $this->containerName;
 				$this->env[$key] = $val;
 			}
 		}
@@ -1096,7 +1098,7 @@ class iTopSideCar extends iTopController {
 		// 这里的 data['status']是传参过来的app的status，不是sidecarver的status。当app下线时，执行删除sidecar创建的资源
 		// SideCarVer不管理任何k8s 资源，不应执行 parent::Run();
 		$container = [
-			'name' => $this->data['sidecar_name'],
+			'name' => $this->containerName,
 			'image' => $this->image,
 			'resources' => $this->resources,
 			'env' => $this->env,
