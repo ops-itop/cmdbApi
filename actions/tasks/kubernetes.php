@@ -311,7 +311,8 @@ class iTopController extends iTopK8s {
 			'APP_DESCRIPTION' => str_replace(array("\r", "\n", "\r\n"), " ", $this->data['description']),
 			'APP_ONLINEDATE' => $this->data['move2production'],
 			'APP_CONTACTS' => $this->List2Str($this->data['person_list'], 'person_name'),
-			'UPDATEDTIME' =>  (string)time(),
+			'MY_CONTAINER_PORT' => $this->data['containerport'],
+			'UPDATEDTIME' =>  date("Y-m-d H:i:s",time()),
 		];
 
 		foreach($envpod as $k => $v) {
