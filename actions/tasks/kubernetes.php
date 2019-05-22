@@ -582,8 +582,8 @@ class iTopController extends iTopK8s {
 		// 处理Service 写成方法是为了在Deployment中可以重写该方法(Worker类型不需要创建Service)
 		$this->UpdateService($del);
 
-		// 设置默认HPA
-		if(!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list']) {
+		// 设置默认HPA （仅production 集群添加默认HPA）
+		if($this->data['k8snamespace_type'] == 'production' && (!array_key_exists("hpa_list", $this->data) || !$this->data['hpa_list'])) {
 			$hpa = new iTopHPA($this->data);
 			$this->DealResult($hpa->Run($del));
 		}
