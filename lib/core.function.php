@@ -111,7 +111,7 @@ function getImgUrl($api, $dot, $post=10000)
 		$data = array("cht" => "gv:dot", "chl"=>$dot);
 		// 调用chart接口生成图片
 		curlPost($api, $data);
-		$imgurl = str_replace("api.php", "", $api) . "img/" . md5($dot) . "dot.png";
+		$imgurl = str_replace("api.php", "", $api) . "cache/images/" . md5($dot) . "gv_dot.png";
 	}
 	return($imgurl);
 }
