@@ -102,12 +102,15 @@ function getDomains() {
 
 function doCheck() {
 	$domains = getDomains();
-	$result = ['all' => [], 'manual' => []];
+	$result = ['all' => [], 'manual' => [], 'manualUnsafe' => []];
 	foreach($domains as $val) {
 		$r = checkResolv($val['domain'], $val['ns']);
 		$result['all'][] = $r;
 		if($r['match'] == 'false' && $r['safe'] == 'true') {
 			$result['manual'][] = $r;
+		}
+		if($r['match'] == 'false' && $r['safe'] == 'false') {
+			$result['manualUnsafe'][] = $r;
 		}
 	}
 	return $result;
@@ -127,10 +130,16 @@ function arrtojson($arr) {
 }
 
 // 方便直接提工单的形式
-function jira() {
+function jira($safe = true) {
 	global $result;
 	$items = [];
-	foreach($result['manual'] as $val) {
+
+	if ($safe) {
+		$manual = $result['manual'];
+	} else {
+		$manual = $result['manualUnsafe'];
+	}
+	foreach($manual as $val) {
 		$items[] = $val['domain'] . " CNAME " . $val['expact'];
 	}
 	if(!$items) {
@@ -152,7 +161,8 @@ if(isset($_GET['show'])) {
 
 if(isset($_GET['format'])) { 
 	if($_GET['format'] == "json") die(arrtojson($show));
-	if($_GET['format'] == "jira") die(jira($show));
+	if($_GET['format'] == "jira") die(jira());
+	if($_GET['format'] == "jiraunsafe") die(jira(false));
 	die(arrtocsv($show));
 } else {
 	die(arrtocsv($show));
