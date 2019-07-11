@@ -128,7 +128,7 @@ class iTopService extends iTopK8s {
 
 		$ports = [];
 		foreach($this->ports as $v) {
-			$ports[] = ['port' => $v['targetPort'], 'protocol' => 'TCP'];
+			$ports[] = ['name' => "port-" . $v['targetPort'], 'port' => $v['targetPort'], 'protocol' => 'TCP'];
 		}
 
 		$endpoints = [
