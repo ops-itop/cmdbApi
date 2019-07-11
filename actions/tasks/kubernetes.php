@@ -109,7 +109,7 @@ class iTopService extends iTopK8s {
 		}
 		$ports = explode(",", $ports);
 		foreach($ports as $k => $v) {
-			$this->ports[] = ['port' => (int) $v, 'targetPort'=>(int) $v];
+			$this->ports[] = ['name' => "port-" . $v, 'port' => (int) $v, 'targetPort'=>(int) $v];
 		}
 	}
 
