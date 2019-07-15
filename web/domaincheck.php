@@ -23,7 +23,7 @@ function dnsAtoString($resolv_a) {
 
 function getCnameMap() {
 	global $iTopAPI;
-	$Oql = "SELECT K8sNamespace WHERE lbtype='production'";
+	$Oql = "SELECT K8sNamespace";
 	$data = $iTopAPI->coreGet('K8sNamespace', $Oql, 'name,cname');
 	$data = json_decode($data, true)['objects'];
 	$map = [];
@@ -64,10 +64,10 @@ function checkResolv($domain, $ns) {
 	return $result;
 }
 
-function getDomains() {
+function getDomains($lbtype = "production") {
 	global $iTopAPI;
-	$OqlDeploy = "SELECT Deployment AS d JOIN K8sNamespace AS ns ON d.k8snamespace_id=ns.id WHERE ns.lbtype='production' AND d.url!='' AND d.status='production'";
-	$OqlIngress = "SELECT Ingress AS i JOIN K8sNamespace AS ns ON i.k8snamespace_id=ns.id WHERE ns.lbtype='production' AND i.status='production'";
+	$OqlDeploy = "SELECT Deployment AS d JOIN K8sNamespace AS ns ON d.k8snamespace_id=ns.id WHERE ns.lbtype='$lbtype' AND d.url!='' AND d.status='production'";
+	$OqlIngress = "SELECT Ingress AS i JOIN K8sNamespace AS ns ON i.k8snamespace_id=ns.id WHERE ns.lbtype='$lbtype' AND i.status='production'";
 	$deploy_domain = $iTopAPI->coreGet("Deployment", $OqlDeploy, "k8snamespace_name, url");
 	$ingress_domain = $iTopAPI->coreGet("Ingress", $OqlIngress, "k8snamespace_name, domain_name");
 
@@ -100,8 +100,8 @@ function getDomains() {
 	return $domains;
 }
 
-function doCheck() {
-	$domains = getDomains();
+function doCheck($lbtype = "production") {
+	$domains = getDomains($lbtype);
 	$result = ['all' => [], 'manual' => [], 'manualUnsafe' => []];
 	foreach($domains as $val) {
 		$r = checkResolv($val['domain'], $val['ns']);
@@ -150,7 +150,39 @@ function jira($safe = true) {
 	return $jira;
 }
 
-$result = doCheck();
+$help = array(
+	"errno" => "1",
+	"errmsg" => "param error",
+	"usage" => "云计算sdns管理系统bug导致泛解析可能会出现解析不了的情况，此接口用于检查泛解析域名",
+	"params" => array(
+		"show" => array(
+			"manual" => "显示需要手工处理的域名",
+			"all" => "显示所有域名"
+		),
+		"format" => array(
+			"json" => "输出json格式",
+			"jira" => "输出csv格式用于提jira工单",
+			"jiraunsafe" => "输出csv格式用于jira工单，unsafe表示不严格的检查"
+		),
+		"lbtype" => array(
+			"develop" => "开发集群",
+			"test" => "测试集群",
+			"production" => "生成集群"
+		)
+	)
+);
+
+header('Content-Type:application/json');
+
+if(!$_GET) {
+	die(json_encode($help));
+}
+
+if(isset($_GET['lbtype'])) {
+	$result = doCheck($_GET['lbtype']);
+} else {
+	$result = doCheck();
+}
 
 $show = $result['all'];
 if(isset($_GET['show'])) {
