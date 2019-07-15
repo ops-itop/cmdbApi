@@ -67,7 +67,7 @@ function checkResolv($domain, $ns) {
 function getDomains($lbtype = "production") {
 	global $iTopAPI;
 	$OqlDeploy = "SELECT Deployment AS d JOIN K8sNamespace AS ns ON d.k8snamespace_id=ns.id WHERE ns.lbtype='$lbtype' AND d.url!='' AND d.status='production'";
-	$OqlIngress = "SELECT Ingress AS i JOIN K8sNamespace AS ns ON i.k8snamespace_id=ns.id WHERE ns.lbtype='$lbtype' AND i.status='production'";
+	$OqlIngress = "SELECT Ingress AS i JOIN K8sNamespace AS ns ON i.k8snamespace_id=ns.id WHERE ns.lbtype='$lbtype' AND i.status='production' AND i.domaincheck='yes'";
 	$deploy_domain = $iTopAPI->coreGet("Deployment", $OqlDeploy, "k8snamespace_name, url");
 	$ingress_domain = $iTopAPI->coreGet("Ingress", $OqlIngress, "k8snamespace_name, domain_name");
 
