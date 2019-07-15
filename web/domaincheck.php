@@ -172,9 +172,8 @@ $help = array(
 	)
 );
 
-header('Content-Type:application/json');
-
 if(!$_GET) {
+	header('Content-Type:application/json');
 	die(json_encode($help));
 }
 
@@ -192,7 +191,10 @@ if(isset($_GET['show'])) {
 }
 
 if(isset($_GET['format'])) { 
-	if($_GET['format'] == "json") die(arrtojson($show));
+	if($_GET['format'] == "json") {
+		header('Content-Type:application/json');
+		die(arrtojson($show));
+	}
 	if($_GET['format'] == "jira") die(jira());
 	if($_GET['format'] == "jiraunsafe") die(jira(false));
 	die(arrtocsv($show));
