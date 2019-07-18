@@ -523,8 +523,8 @@ class iTopController extends iTopK8s {
 
 	function GetLifecycle() {
 		$sec = '45';
-		if(array_key_exists("prestop", $this->data) && $this->data['prestop']) {
-			$sec = (string)$this->data['prestop'];
+		if(array_key_exists("prestop", $this->data) && (int)$this->data['prestop'] >= 0) {
+			$sec = (string)(int)$this->data['prestop'];
 		}
 		$this->lifecycle =  [
 			'preStop' => [
