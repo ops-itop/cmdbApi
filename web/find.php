@@ -8,6 +8,16 @@
  **/
 require 'common/init.php';
 
+function getQuery($type) {
+	if($type == "ip") {
+		$query = "SELECT " . $config['map'][$type] . " AS t JOIN Server AS s ON t.connectableci_id=s.id WHERE t.$key='$value' AND s.status!='obsolete'";
+	} else {
+		$query = "SELECT " . $config['map'][$type] . " AS t WHERE t.$key='$value'";
+	}
+
+	return $query;
+}
+
 if(isset($_GET['type']) and isset($_GET['value'])) {
 	if(isset($_GET['key'])){
 		$key = $_GET['key'];
@@ -16,7 +26,7 @@ if(isset($_GET['type']) and isset($_GET['value'])) {
 	}
 	$type = $_GET['type'];
 	$value = $_GET['value'];
-	$query = "SELECT " . $config['map'][$type] . " AS t WHERE t.$key='$value'";
+	$query = getQuery($type);
 	$data = $iTopAPI->coreGet("FunctionalCI", $query);
 	$data = json_decode($data, true);
 	if($data['objects'] != null){
