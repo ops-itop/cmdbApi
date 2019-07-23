@@ -13,7 +13,7 @@ function getQuery($type, $value, $key) {
 	if($type == "ip") {
 		$query = "SELECT " . $config['map'][$type] . " AS t JOIN Server AS s ON t.connectableci_id=s.id WHERE t.$key='$value' AND s.status!='obsolete'";
 	} else {
-		$query = "SELECT " . $config['map'][$type] . " AS t WHERE t.$key='$value'";
+		$query = "SELECT " . $config['map'][$type] . " AS t WHERE t.$key='$value' AND t.status!='obsolete'";
 	}
 
 	return $query;
