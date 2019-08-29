@@ -993,6 +993,15 @@ class iTopVolume {
 		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
 	}
 
+	function GetPVC($key, $val) {
+		// 考虑volume 增删的情况，用 $key 做为 name，可能导致name变化
+		// 因此考虑用 volumn 名称（命名为 rbd-1, rbd-2 等形式）作为 name
+		// GetHostpath 也有类似问题，考虑到变更可能带来的影响，暂时不修复
+		$name = $val['k8svolume_type'] . "-" . $val['k8svolume_name'] . "-" . $this->app;
+		$this->volumes['volumeMounts'][] = ['name' => $name, 'mountPath' => $val['mountPath']];
+		$this->volumes['volumes'][] = ['name' => $name, 'persistentVolumeClaim' => ['claimName' => $name]];
+	}
+	
 	function Run() {
 		foreach($this->data as $key => $val) {
 			$volumetype = $val['k8svolume_type'];
