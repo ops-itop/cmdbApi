@@ -16,6 +16,7 @@ use Maclof\Kubernetes\Models\Service;
 use Maclof\Kubernetes\Models\Ingress;
 use Maclof\Kubernetes\Models\Secret;
 use Maclof\Kubernetes\Models\HorizontalPodAutoscaler;
+use Maclof\Kubernetes\Models\PersistentVolumeClaim;
 use Maclof\Kubernetes\Models\Endpoint;
 
 $ID = getenv("ID");
@@ -270,7 +271,7 @@ class iTopController extends iTopK8s {
 
 	function GetVolumes() {
 		// 挂载volumes
-		$volumes = new iTopVolume($this->data['volume_list'], $this->app);
+		$volumes = new iTopVolume($this->data['volume_list'], $this->app, $this->ns);
 		$this->volumes = $volumes->Run();
 		// 挂载宿主机时区
 		$this->volumes['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
@@ -988,7 +989,6 @@ class iTopPVC extends iTopK8s {
 				"accessModes" => $data['accessModes'],
 				"storageClassName" => $data['storageClassName'],
 				"resources" => $data['resources'],
-				"persistentVolumeReclaimPolicy" => $data['persistentVolumeReclaimPolicy']
 			]
 		];
 	}
@@ -1001,7 +1001,11 @@ class iTopPVC extends iTopK8s {
 		if($this->exists) {
 			$this->result[] = $this->k8sClient->persistentVolumeClaims()->update($pvc);
 		} else {
-			$this->result[] = $this->k8sClient->persistentVolumeClaims()->create($pvc);
+			try {
+				$this->result[] = $this->k8sClient->persistentVolumeClaims()->create($pvc);
+			} catch(Exception $e) {
+				$this->result[] = $e->getMessage();
+			}
 		}
 
 		return ($this->result);
@@ -1011,11 +1015,13 @@ class iTopPVC extends iTopK8s {
 class iTopVolume {
 	private $data;
 	private $app;
+	private $ns;
 	private $volumes;
 
-	function __construct($data, $app) {
+	function __construct($data, $app, $ns) {
 		$this->data = $data;
 		$this->app = $app;
+		$this->ns = $ns;
 		$this->volumes = ['volumeMounts' => [], 'volumes' => []];
 	}
 
@@ -1038,11 +1044,12 @@ class iTopVolume {
 		
 		// 创建或更新PVC
 		$param = [
+			'applicationsolution_name' => $this->app,
+			'k8snamespace_name' => $this->ns,
 			'name' => $name,
 			'accessModes' => $val['k8svolume_accessmodes'],
 			'storageClassName' => $val['k8svolume_storageclass'],
-			'resources' => ['requests' => $val['requests']],
-			'persistentVolumeReclaimPolicy' => $val['k8svolume_reclaimpolicy']
+			'resources' => ['requests' => ["storage" => $val['storage'] . "Gi"]],
 		];
 		$pvc = new iTopPVC($param);
 		$pvc->Run();
