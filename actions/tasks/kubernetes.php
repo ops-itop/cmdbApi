@@ -974,6 +974,40 @@ class iTopAffinity {
 	}
 }
 
+class iTopPVC extends iTopK8s {
+	private $pvc;
+
+	function __construct($data) {
+		parent::__construct($data);
+		$this->pvc = [
+			"metadata" => [
+				"name" => $data['name'],
+				"namespace" => $this->ns
+			], 
+			"spec" => [
+				"accessModes" => $data['accessModes'],
+				"storageClassName" => $data['storageClassName'],
+				"resources" => $data['resources'],
+				"persistentVolumeReclaimPolicy" => $data['persistentVolumeReclaimPolicy']
+			]
+		];
+	}
+
+	function Run($del = false) {
+		// 为确保数据安全，pvc 需确认后人工删除，此函数不做删除操作
+		$pvc = new PersistentVolumeClaim($this->pvc);
+		$this->exists = $this->k8sClient->persistentVolumeClaims()->exists($pvc->getMetadata('name'));
+
+		if($this->exists) {
+			$this->result[] = $this->k8sClient->persistentVolumeClaims()->update($pvc);
+		} else {
+			$this->result[] = $this->k8sClient->persistentVolumeClaims()->create($pvc);
+		}
+
+		return ($this->result);
+	}
+}
+
 class iTopVolume {
 	private $data;
 	private $app;
@@ -992,14 +1026,26 @@ class iTopVolume {
 		$this->volumes['volumeMounts'][] = ['name'=>$name, 'mountPath'=>$val['mountpath']];
 		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
 	}
-
+	
 	function GetPVC($key, $val) {
 		// 考虑volume 增删的情况，用 $key 做为 name，可能导致name变化
 		// 因此考虑用 volumn 名称（命名为 rbd-1, rbd-2 等形式）作为 name
+		// iTop端保证 Controller 对每个 volumn 的链接只能有一个
 		// GetHostpath 也有类似问题，考虑到变更可能带来的影响，暂时不修复
-		$name = $val['k8svolume_type'] . "-" . $val['k8svolume_name'] . "-" . $this->app;
-		$this->volumes['volumeMounts'][] = ['name' => $name, 'mountPath' => $val['mountPath']];
+		$name = $this->app . "-" . $val['k8svolume_type'] . "-" . $val['k8svolume_name'];
+		$this->volumes['volumeMounts'][] = ['name' => $name, 'mountPath' => $val['mountpath']];
 		$this->volumes['volumes'][] = ['name' => $name, 'persistentVolumeClaim' => ['claimName' => $name]];
+		
+		// 创建或更新PVC
+		$param = [
+			'name' => $name,
+			'accessModes' => $val['k8svolume_accessmodes'],
+			'storageClassName' => $val['k8svolume_storageclass'],
+			'resources' => ['requests' => $val['requests']],
+			'persistentVolumeReclaimPolicy' => $val['k8svolume_reclaimpolicy']
+		];
+		$pvc = new iTopPVC($param);
+		$pvc->Run();
 	}
 	
 	function Run() {
@@ -1007,6 +1053,8 @@ class iTopVolume {
 			$volumetype = $val['k8svolume_type'];
 			if($volumetype == "hostpath") {
 				$this->GetHostpath($key, $val);
+			} else {
+				$this->GetPVC($key, $val);
 			}
 		}
 		return $this->volumes;
