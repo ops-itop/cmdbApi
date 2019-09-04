@@ -273,6 +273,11 @@ class iTopController extends iTopK8s {
 		// 挂载volumes
 		$volumes = new iTopVolume($this->data['volume_list'], $this->app, $this->ns);
 		$this->volumes = $volumes->Run();
+		// 获取到更新PVC的返回结果，需在 Run() 之后执行
+		foreach($volumes->GetPvcResult() as $r) {
+			$this->result[] = $r;
+		}
+
 		// 挂载宿主机时区
 		$this->volumes['volumeMounts'][] = ['name'=>'tz-config', 'mountPath'=>'/etc/localtime'];
 		$this->volumes['volumes'][] = ['name'=>'tz-config','hostPath'=>['path'=>'/usr/share/zoneinfo/Asia/Shanghai']];
@@ -999,13 +1004,9 @@ class iTopPVC extends iTopK8s {
 		$this->exists = $this->k8sClient->persistentVolumeClaims()->exists($pvc->getMetadata('name'));
 
 		if($this->exists) {
-			$this->result[] = $this->k8sClient->persistentVolumeClaims()->update($pvc);
+			$this->result[] = $this->k8sClient->persistentVolumeClaims()->patch($pvc);
 		} else {
-			try {
-				$this->result[] = $this->k8sClient->persistentVolumeClaims()->create($pvc);
-			} catch(Exception $e) {
-				$this->result[] = $e->getMessage();
-			}
+			$this->result[] = $this->k8sClient->persistentVolumeClaims()->create($pvc);
 		}
 
 		return ($this->result);
@@ -1017,6 +1018,7 @@ class iTopVolume {
 	private $app;
 	private $ns;
 	private $volumes;
+	private $pvcResult = [];
 
 	function __construct($data, $app, $ns) {
 		$this->data = $data;
@@ -1032,6 +1034,28 @@ class iTopVolume {
 		$this->volumes['volumeMounts'][] = ['name'=>$name, 'mountPath'=>$val['mountpath']];
 		$this->volumes['volumes'][] = ['name'=>$name, 'hostPath'=>['path'=>$path]];
 	}
+
+	function CreatePVC($name, $val) {
+		// 创建或更新PVC
+		$param = [
+			'applicationsolution_name' => $this->app,
+			'k8snamespace_name' => $this->ns,
+			'name' => $name,
+			'accessModes' => explode(",", $val['k8svolume_accessmodes']),
+			'storageClassName' => $val['k8svolume_storageclass'],
+			'resources' => ['requests' => ["storage" => $val['storage'] . "Gi"]],
+		];
+		$pvc = new iTopPVC($param);
+		
+		try {
+			$ret = $pvc->Run();
+			return reset($ret);
+		} catch (Exception $e) {
+			$message = json_decode($e->getMessage(), true);
+			if(!$message) $message = $e->getMessage();
+			return $message;
+		}
+	}
 	
 	function GetPVC($key, $val) {
 		// 考虑volume 增删的情况，用 $key 做为 name，可能导致name变化
@@ -1042,17 +1066,12 @@ class iTopVolume {
 		$this->volumes['volumeMounts'][] = ['name' => $name, 'mountPath' => $val['mountpath']];
 		$this->volumes['volumes'][] = ['name' => $name, 'persistentVolumeClaim' => ['claimName' => $name]];
 		
-		// 创建或更新PVC
-		$param = [
-			'applicationsolution_name' => $this->app,
-			'k8snamespace_name' => $this->ns,
-			'name' => $name,
-			'accessModes' => $val['k8svolume_accessmodes'],
-			'storageClassName' => $val['k8svolume_storageclass'],
-			'resources' => ['requests' => ["storage" => $val['storage'] . "Gi"]],
-		];
-		$pvc = new iTopPVC($param);
-		$pvc->Run();
+		// 存储 pvc 更新结果
+		$this->pvcResult[] = $this->CreatePVC($name, $val);
+	}
+	
+	function GetPvcResult() {
+		return $this->pvcResult;
 	}
 	
 	function Run() {
