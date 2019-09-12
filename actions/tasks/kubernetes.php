@@ -1261,8 +1261,13 @@ class iTopIngress extends iTopK8S {
 			]
 		];
 		// secretName 为 default-tls，需事先通过kubectl创建
+		// 通过custom_cert支持自定义的 tls secret，但需要管理员事先创建
 		if($this->data['https'] == "on") {
-			$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => 'default-tls'];
+			if($this->data['custom_cert'] == "yes" && $this->data['cert_name']) {
+				$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => $this->data['cert_name']];
+			} else {
+				$tls[] = ['hosts' =>[$data['domain_name']], 'secretName' => 'default-tls'];
+			}
 		}
 		$customNginx = new iTopIngressAnnotations($data['ingressannotations_list']);
 		$annotations = $customNginx->Run();
