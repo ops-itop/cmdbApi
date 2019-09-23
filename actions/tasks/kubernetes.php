@@ -206,6 +206,7 @@ class iTopController extends iTopK8s {
 	protected $volumes;
 	protected $sidecars = [];
 	protected $imagePullPolicy;
+	protected $imagePullSecrets;
 	protected $hostNetwork = false;
 	protected $livenessProbe;
 	protected $readinessProbe;
@@ -226,6 +227,7 @@ class iTopController extends iTopK8s {
 		$this->GetSecrets();
 
 		$this->GetImagePullPolicy();
+		$this->GetImagePullSecrets();
 		$this->GetVolumes();
 		$this->GetEnvs();
 		$this->GetImage();
@@ -267,6 +269,10 @@ class iTopController extends iTopK8s {
 		if($this->data['image_tag'] == "latest" or $this->data['image_tag'] == "") {
 			$this->imagePullPolicy = "Always";
 		}
+	}
+	
+	function GetImagePullSecrets() {
+		$this->imagePullSecrets = _getconfig("kubernetes_imagepullsecrets");
 	}
 
 	function GetVolumes() {
@@ -770,6 +776,10 @@ class iTopDeployment extends iTopController {
 			foreach($this->sidecars as $sidecar) {
 				$this->deployment['spec']['template']['spec']['containers'][] = $sidecar;
 			}
+		}
+		
+		if($this->imagePullSecrets) {
+			$this->deployment['spec']['template']['spec']['imagePullSecrets'][0]["name"] = $this->imagePullSecrets;
 		}
 
 		$this->deployment['spec']['template']['spec']['terminationGracePeriodSeconds'] = $this->terminationGracePeriodSeconds;
