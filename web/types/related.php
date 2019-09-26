@@ -52,6 +52,11 @@ function dealData($data_arr, $rankdir)
 function typeRelated($iTopAPI, $type, $value, $rankdir="TB", $depth="8", $direction="down", $filter="Person", $hide=array(), $show=array()) 
 {
 	global $config;
+	
+	// 识别k8s为外部负载均衡添加的格式为  -forexternal-md5sum 格式的后缀
+	if($type == "ApplicationSolution") {
+		$value = preg_replace('/-forexternal-.*$/', '', $value);
+	}
 	if($type == "Person") {
 		$query = "SELECT Person AS p WHERE p.login IN ('$value')";
 		$direction = "up";
