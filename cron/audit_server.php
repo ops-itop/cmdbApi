@@ -49,7 +49,7 @@ function getAllServer()
 {
 	global $iTopAPI;
 	$oql = "SELECT Server WHERE status != 'obsolete'";
-	$output_fields = "status,name,hostname,osfamily_name,osversion_name,pdnum,pdsize,kernel,raid,brand_name,model_name,cpu,ram,ip_list,vip_list,organization_name";
+	$output_fields = "status,name,hostname,osfamily_name,osversion_name,pdnum,pdsize,kernel,raid,brand_name,model_name,cpu,ram,ip_list,vip_list,organization_name,purchase_date";
 	$data = $iTopAPI->coreGet("Server", $oql, $output_fields);
 	$data = json_decode($data, true);
 	return $data['objects'];
@@ -61,7 +61,7 @@ function zabbixHostGet($name)
 	global $zbxAPI;
 	$param = array(
 		"output" => array("host","inventory"),
-		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os", "type", "url_a", "url_b", "url_c", "host_networks"),
+		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os", "type", "url_a", "url_b", "url_c", "host_networks", "date_hw_purchased"),
 		"searchInventory" => array("asset_tag" => $name)
 	);
 	$data = $zbxAPI->hostGet($param);
@@ -92,6 +92,7 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'pdsize' => $cmdbdata['fields']['pdsize'],
 		'raid' => $cmdbdata['fields']['raid'],
 		'kernel' => $cmdbdata['fields']['kernel'],
+		'purchase_date' => $cmdbdata['fields']['purchase_date'],
 	);
 
 	$zbxServer = array(
@@ -107,6 +108,7 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'pdsize' => $zbxdata['inventory']['url_b'],
 		'raid' => $zbxdata['inventory']['url_c'],
 		'kernel' => $zbxdata['inventory']['type'],
+		'purchase_date' => $zbxdata['inventory']['date_hw_purchased'],
 	);
 	
 	$key = array("name" => $cmdbServer['name']);
