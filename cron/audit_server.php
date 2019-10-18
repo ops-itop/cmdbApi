@@ -61,7 +61,7 @@ function zabbixHostGet($name)
 	global $zbxAPI;
 	$param = array(
 		"output" => array("host","inventory"),
-		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os", "type", "url_a", "url_b", "url_c", "host_networks", "date_hw_purchased"),
+		"selectInventory" => array("asset_tag", "vendor", "model", "tag", "notes", "os", "type", "url_a", "url_b", "url_c", "host_networks", "date_hw_purchase"),
 		"searchInventory" => array("asset_tag" => $name)
 	);
 	$data = $zbxAPI->hostGet($param);
@@ -108,7 +108,7 @@ function updateAssetInfo($cmdbdata, $zbxdata)
 		'pdsize' => $zbxdata['inventory']['url_b'],
 		'raid' => $zbxdata['inventory']['url_c'],
 		'kernel' => $zbxdata['inventory']['type'],
-		'purchase_date' => $zbxdata['inventory']['date_hw_purchased'],
+		'purchase_date' => $zbxdata['inventory']['date_hw_purchase'],
 	);
 	
 	$key = array("name" => $cmdbServer['name']);
