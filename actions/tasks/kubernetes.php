@@ -132,10 +132,14 @@ class iTopService extends iTopK8s {
 			$ports[] = ['name' => "port-" . $v['targetPort'], 'port' => $v['targetPort'], 'protocol' => 'TCP'];
 		}
 
+		// custom endpoints 加上 type=external 标签，方便区分
 		$endpoints = [
 			'metadata' => [
 				'namespace' => $this->ns,
-				'name' => $this->serviceName
+				'name' => $this->serviceName,
+				'labels' => [
+					'type' => 'external'
+				]
 			],
 			'subsets' => [
 				[
