@@ -91,6 +91,7 @@ function errorMsg($id,$arg="") {
 	return($data);
 }
 
+header("Content-Type: application/json");
 if(isset($_GET['type']) and isset($_GET['value'])) {
 	$type = $_GET['type'];
 	$value = $_GET['value'];
